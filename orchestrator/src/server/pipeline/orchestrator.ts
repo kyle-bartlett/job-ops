@@ -73,7 +73,21 @@ export async function runPipeline(config: Partial<PipelineConfig> = {}): Promise
     console.log('\n🕷️ Running crawler...');
     progressHelpers.startCrawling();
     const existingJobUrls = await jobsRepo.getAllJobUrls();
-    const crawlerResult = await runCrawler({ existingJobUrls });
+    const crawlerResult = await runCrawler({
+      existingJobUrls,
+      onProgress: (update) => {
+        progressHelpers.crawlingUpdate({
+          listPagesProcessed: update.listPagesProcessed,
+          listPagesTotal: update.listPagesTotal,
+          jobCardsFound: update.jobCardsFound,
+          jobPagesEnqueued: update.jobPagesEnqueued,
+          jobPagesSkipped: update.jobPagesSkipped,
+          jobPagesProcessed: update.jobPagesProcessed,
+          phase: update.phase,
+          currentUrl: update.currentUrl,
+        });
+      },
+    });
     
     if (!crawlerResult.success) {
       throw new Error(`Crawler failed: ${crawlerResult.error}`);
@@ -100,15 +114,25 @@ export async function runPipeline(config: Partial<PipelineConfig> = {}): Promise
     const scoredJobs: Array<Job & { suitabilityScore: number; suitabilityReason: string }> = [];
     for (let i = 0; i < unprocessedJobs.length; i++) {
       const job = unprocessedJobs[i];
-      progressHelpers.scoringJob(i + 1, unprocessedJobs.length, job.title);
-      
+      const hasCachedScore = typeof job.suitabilityScore === 'number' && !Number.isNaN(job.suitabilityScore);
+      progressHelpers.scoringJob(i + 1, unprocessedJobs.length, hasCachedScore ? `${job.title} (cached)` : job.title);
+
+      if (hasCachedScore) {
+        scoredJobs.push({
+          ...job,
+          suitabilityScore: job.suitabilityScore as number,
+          suitabilityReason: job.suitabilityReason ?? '',
+        });
+        continue;
+      }
+
       const { score, reason } = await scoreJobSuitability(job, profile);
       scoredJobs.push({
         ...job,
         suitabilityScore: score,
         suitabilityReason: reason,
       });
-      
+
       // Update score in database
       await jobsRepo.updateJob(job.id, {
         suitabilityScore: score,

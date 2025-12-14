@@ -4,6 +4,7 @@ import { PlaywrightCrawler } from "crawlee";
 import { firefox } from "playwright";
 
 import { router } from "./routes.js";
+import { initJobOpsProgress } from "./progress.js";
 
 // locations
 const locations = [
@@ -34,6 +35,8 @@ const startUrls = gradcrackerUrls.map((url) => ({
   url,
   userData: { label: "gradcracker-list-page" },
 }));
+
+initJobOpsProgress(startUrls.length);
 
 const crawler = new PlaywrightCrawler({
   // proxyConfiguration: new ProxyConfiguration({ proxyUrls: ['...'] }),

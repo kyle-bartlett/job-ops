@@ -15,6 +15,14 @@ export interface PipelineProgress {
   step: PipelineStep;
   message: string;
   detail?: string;
+  crawlingListPagesProcessed: number;
+  crawlingListPagesTotal: number;
+  crawlingJobCardsFound: number;
+  crawlingJobPagesEnqueued: number;
+  crawlingJobPagesSkipped: number;
+  crawlingJobPagesProcessed: number;
+  crawlingPhase?: 'list' | 'job';
+  crawlingCurrentUrl?: string;
   jobsDiscovered: number;
   jobsScored: number;
   jobsProcessed: number;
@@ -36,6 +44,12 @@ const listeners: Set<ProgressListener> = new Set();
 let currentProgress: PipelineProgress = {
   step: 'idle',
   message: 'Ready',
+  crawlingListPagesProcessed: 0,
+  crawlingListPagesTotal: 0,
+  crawlingJobCardsFound: 0,
+  crawlingJobPagesEnqueued: 0,
+  crawlingJobPagesSkipped: 0,
+  crawlingJobPagesProcessed: 0,
   jobsDiscovered: 0,
   jobsScored: 0,
   jobsProcessed: 0,
@@ -87,6 +101,14 @@ export function resetProgress(): void {
   currentProgress = {
     step: 'idle',
     message: 'Ready',
+    crawlingListPagesProcessed: 0,
+    crawlingListPagesTotal: 0,
+    crawlingJobCardsFound: 0,
+    crawlingJobPagesEnqueued: 0,
+    crawlingJobPagesSkipped: 0,
+    crawlingJobPagesProcessed: 0,
+    crawlingPhase: undefined,
+    crawlingCurrentUrl: undefined,
     jobsDiscovered: 0,
     jobsScored: 0,
     jobsProcessed: 0,
@@ -101,19 +123,83 @@ export const progressHelpers = {
   startCrawling: () => updateProgress({
     step: 'crawling',
     message: 'Fetching jobs from sources...',
-    detail: 'Running Crawlee crawler',
+    detail: 'Starting crawler',
     startedAt: new Date().toISOString(),
+    crawlingListPagesProcessed: 0,
+    crawlingListPagesTotal: 0,
+    crawlingJobCardsFound: 0,
+    crawlingJobPagesEnqueued: 0,
+    crawlingJobPagesSkipped: 0,
+    crawlingJobPagesProcessed: 0,
+    crawlingPhase: undefined,
+    crawlingCurrentUrl: undefined,
     jobsDiscovered: 0,
     jobsScored: 0,
     jobsProcessed: 0,
     totalToProcess: 0,
   }),
+
+  crawlingUpdate: (update: {
+    listPagesProcessed?: number;
+    listPagesTotal?: number;
+    jobCardsFound?: number;
+    jobPagesEnqueued?: number;
+    jobPagesSkipped?: number;
+    jobPagesProcessed?: number;
+    phase?: 'list' | 'job';
+    currentUrl?: string;
+  }) => {
+    const current = getProgress();
+    const next = {
+      ...current,
+      crawlingListPagesProcessed: update.listPagesProcessed ?? current.crawlingListPagesProcessed,
+      crawlingListPagesTotal: update.listPagesTotal ?? current.crawlingListPagesTotal,
+      crawlingJobCardsFound: update.jobCardsFound ?? current.crawlingJobCardsFound,
+      crawlingJobPagesEnqueued: update.jobPagesEnqueued ?? current.crawlingJobPagesEnqueued,
+      crawlingJobPagesSkipped: update.jobPagesSkipped ?? current.crawlingJobPagesSkipped,
+      crawlingJobPagesProcessed: update.jobPagesProcessed ?? current.crawlingJobPagesProcessed,
+      crawlingPhase: update.phase ?? current.crawlingPhase,
+      crawlingCurrentUrl: update.currentUrl ?? current.crawlingCurrentUrl,
+    };
+
+    const sourcesPart =
+      next.crawlingListPagesTotal > 0
+        ? `${next.crawlingListPagesProcessed}/${next.crawlingListPagesTotal}`
+        : `${next.crawlingListPagesProcessed}`;
+
+    const pagesPart = `${next.crawlingJobPagesProcessed}/${next.crawlingJobPagesEnqueued}`;
+    const skippedPart = next.crawlingJobPagesSkipped > 0 ? `, skipped ${next.crawlingJobPagesSkipped}` : '';
+    const cardsPart = next.crawlingJobCardsFound > 0 ? `, cards ${next.crawlingJobCardsFound}` : '';
+
+    const message = `Crawling jobs (${sourcesPart} sources, pages ${pagesPart}${skippedPart}${cardsPart})...`;
+    const detail =
+      next.crawlingCurrentUrl && next.crawlingPhase
+        ? `${next.crawlingPhase === 'list' ? 'List' : 'Job'}: ${next.crawlingCurrentUrl}`
+        : next.crawlingCurrentUrl
+          ? next.crawlingCurrentUrl
+          : 'Running crawler';
+
+    updateProgress({
+      step: 'crawling',
+      message,
+      detail,
+      crawlingListPagesProcessed: next.crawlingListPagesProcessed,
+      crawlingListPagesTotal: next.crawlingListPagesTotal,
+      crawlingJobCardsFound: next.crawlingJobCardsFound,
+      crawlingJobPagesEnqueued: next.crawlingJobPagesEnqueued,
+      crawlingJobPagesSkipped: next.crawlingJobPagesSkipped,
+      crawlingJobPagesProcessed: next.crawlingJobPagesProcessed,
+      crawlingPhase: next.crawlingPhase,
+      crawlingCurrentUrl: next.crawlingCurrentUrl,
+    });
+  },
   
   crawlingComplete: (jobsFound: number) => updateProgress({
     step: 'importing',
     message: `Found ${jobsFound} jobs, importing to database...`,
     detail: 'Deduplicating and saving',
     jobsDiscovered: jobsFound,
+    crawlingCurrentUrl: undefined,
   }),
   
   importComplete: (created: number, skipped: number) => updateProgress({

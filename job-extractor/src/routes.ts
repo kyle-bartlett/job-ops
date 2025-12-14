@@ -1,5 +1,6 @@
 import { createPlaywrightRouter, log } from "crawlee";
 import { readFileSync } from "node:fs";
+import { markJobPageDone, markListPageDone } from "./progress.js";
 
 function normalizeUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -189,6 +190,13 @@ router.addHandler(
         `Skipping ${skippedKnownJobs} already-known job pages; enqueued ${enqueuedJobs} new job pages.`
       );
     }
+
+    markListPageDone({
+      currentUrl: request.url,
+      jobCardsFound: jobs.length,
+      jobPagesEnqueued: enqueuedJobs,
+      jobPagesSkipped: skippedKnownJobs,
+    });
   }
 );
 
@@ -303,5 +311,7 @@ router.addHandler(
       applicationLink, // External or same-page URL after click
       jobDescription,
     });
+
+    markJobPageDone({ currentUrl: request.url });
   }
 );

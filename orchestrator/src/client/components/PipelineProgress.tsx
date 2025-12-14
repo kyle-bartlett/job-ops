@@ -8,6 +8,14 @@ interface PipelineProgress {
   step: 'idle' | 'crawling' | 'importing' | 'scoring' | 'processing' | 'completed' | 'failed';
   message: string;
   detail?: string;
+  crawlingListPagesProcessed: number;
+  crawlingListPagesTotal: number;
+  crawlingJobCardsFound: number;
+  crawlingJobPagesEnqueued: number;
+  crawlingJobPagesSkipped: number;
+  crawlingJobPagesProcessed: number;
+  crawlingPhase?: 'list' | 'job';
+  crawlingCurrentUrl?: string;
   jobsDiscovered: number;
   jobsScored: number;
   jobsProcessed: number;
@@ -94,7 +102,13 @@ export const PipelineProgress: React.FC<PipelineProgressProps> = ({ isRunning })
   if (progress) {
     switch (step) {
       case 'crawling':
-        percentage = 10;
+        if (progress.crawlingListPagesTotal > 0) {
+          percentage = (progress.crawlingListPagesProcessed / progress.crawlingListPagesTotal) * 15;
+        } else if (progress.crawlingListPagesProcessed > 0) {
+          percentage = 8;
+        } else {
+          percentage = 5;
+        }
         break;
       case 'importing':
         percentage = 20;
@@ -190,7 +204,7 @@ export const PipelineProgress: React.FC<PipelineProgressProps> = ({ isRunning })
       )}
       
       {/* Stats */}
-      {progress && (step === 'scoring' || step === 'processing' || step === 'completed') && (
+      {progress && (step === 'crawling' || step === 'scoring' || step === 'processing' || step === 'completed') && (
         <div style={{
           display: 'flex',
           gap: 'var(--space-6)',
@@ -198,12 +212,53 @@ export const PipelineProgress: React.FC<PipelineProgressProps> = ({ isRunning })
           borderTop: '1px solid var(--glass-border)',
           fontSize: 'var(--font-sm)',
         }}>
-          <div>
-            <span style={{ color: 'var(--color-muted)' }}>Discovered: </span>
-            <span style={{ color: 'var(--color-text)', fontWeight: '500' }}>
-              {progress.jobsDiscovered}
-            </span>
-          </div>
+          {step === 'crawling' && (
+            <>
+              <div>
+                <span style={{ color: 'var(--color-muted)' }}>Sources: </span>
+                <span style={{ color: 'var(--color-text)', fontWeight: '500' }}>
+                  {progress.crawlingListPagesProcessed}
+                  {progress.crawlingListPagesTotal > 0 ? `/${progress.crawlingListPagesTotal}` : ''}
+                </span>
+              </div>
+              <div>
+                <span style={{ color: 'var(--color-muted)' }}>Pages: </span>
+                <span style={{ color: 'var(--color-text)', fontWeight: '500' }}>
+                  {progress.crawlingJobPagesProcessed}/{Math.max(progress.crawlingJobPagesEnqueued, 0)}
+                </span>
+              </div>
+              <div>
+                <span style={{ color: 'var(--color-muted)' }}>Enqueued: </span>
+                <span style={{ color: 'var(--color-text)', fontWeight: '500' }}>
+                  {progress.crawlingJobPagesEnqueued}
+                </span>
+              </div>
+              {progress.crawlingJobPagesSkipped > 0 && (
+                <div>
+                  <span style={{ color: 'var(--color-muted)' }}>Skipped: </span>
+                  <span style={{ color: 'var(--color-text)', fontWeight: '500' }}>
+                    {progress.crawlingJobPagesSkipped}
+                  </span>
+                </div>
+              )}
+              {progress.crawlingJobCardsFound > 0 && (
+                <div>
+                  <span style={{ color: 'var(--color-muted)' }}>Cards: </span>
+                  <span style={{ color: 'var(--color-text)', fontWeight: '500' }}>
+                    {progress.crawlingJobCardsFound}
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+          {step !== 'crawling' && (
+            <div>
+              <span style={{ color: 'var(--color-muted)' }}>Discovered: </span>
+              <span style={{ color: 'var(--color-text)', fontWeight: '500' }}>
+                {progress.jobsDiscovered}
+              </span>
+            </div>
+          )}
           {progress.jobsScored > 0 && (
             <div>
               <span style={{ color: 'var(--color-muted)' }}>Scored: </span>

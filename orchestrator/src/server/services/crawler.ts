@@ -7,6 +7,7 @@ import { spawn } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
+import { createInterface } from 'readline';
 import type { CreateJobInput } from '../../shared/types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -26,7 +27,26 @@ export interface RunCrawlerOptions {
    * Used by the crawler to avoid expensive/undesired interactions (e.g. apply button click).
    */
   existingJobUrls?: string[];
+
+  /**
+   * Optional callback for live crawl progress emitted by job-extractor.
+   */
+  onProgress?: (update: JobExtractorProgress) => void;
 }
+
+interface JobExtractorProgress {
+  phase?: 'list' | 'job';
+  currentUrl?: string;
+  listPagesProcessed?: number;
+  listPagesTotal?: number;
+  jobCardsFound?: number;
+  jobPagesEnqueued?: number;
+  jobPagesSkipped?: number;
+  jobPagesProcessed?: number;
+  ts?: string;
+}
+
+const JOBOPS_PROGRESS_PREFIX = 'JOBOPS_PROGRESS ';
 
 async function writeExistingJobUrlsFile(existingJobUrls: string[] | undefined): Promise<string | null> {
   if (!existingJobUrls || existingJobUrls.length === 0) return null;
@@ -53,15 +73,38 @@ export async function runCrawler(options: RunCrawlerOptions = {}): Promise<Crawl
       const child = spawn('npm', ['run', 'start'], {
         cwd: CRAWLER_DIR,
         shell: true,
-        stdio: 'inherit',
+        stdio: ['ignore', 'pipe', 'pipe'],
         env: {
           ...process.env,
           JOBOPS_SKIP_APPLY_FOR_EXISTING: '1',
+          JOBOPS_EMIT_PROGRESS: '1',
           ...(existingJobUrlsFile ? { JOBOPS_EXISTING_JOB_URLS_FILE: existingJobUrlsFile } : {}),
         },
       });
+
+      const handleLine = (line: string, stream: NodeJS.WriteStream) => {
+        if (line.startsWith(JOBOPS_PROGRESS_PREFIX)) {
+          const raw = line.slice(JOBOPS_PROGRESS_PREFIX.length).trim();
+          try {
+            const parsed = JSON.parse(raw) as JobExtractorProgress;
+            options.onProgress?.(parsed);
+          } catch {
+            // Ignore malformed progress lines
+          }
+          return;
+        }
+        stream.write(`${line}\n`);
+      };
+
+      const stdoutRl = child.stdout ? createInterface({ input: child.stdout }) : null;
+      const stderrRl = child.stderr ? createInterface({ input: child.stderr }) : null;
+
+      stdoutRl?.on('line', (line) => handleLine(line, process.stdout));
+      stderrRl?.on('line', (line) => handleLine(line, process.stderr));
       
       child.on('close', (code) => {
+        stdoutRl?.close();
+        stderrRl?.close();
         if (code === 0) {
           resolve();
         } else {
