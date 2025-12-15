@@ -65,7 +65,7 @@ export async function generateSummary(
       throw new Error('No content in response');
     }
     
-    return { success: true, summary: summary.trim() };
+    return { success: true, summary: sanitizeTailoredSummary(summary) };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     return { success: false, error: message };
@@ -138,7 +138,7 @@ export async function generateSummaryViaPython(
       child.on('error', reject);
     });
     
-    return { success: true, summary: result.trim() };
+    return { success: true, summary: sanitizeTailoredSummary(result) };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     return { success: false, error: message };
@@ -150,4 +150,13 @@ export async function generateSummaryViaPython(
       // Ignore cleanup errors
     }
   }
+}
+
+function sanitizeTailoredSummary(summary: string): string {
+  const withoutBoldPreface = summary.replace(/\*\*[\s\S]*?\*\*/g, '');
+  return withoutBoldPreface
+    .replace(/^\s*[-–—:]+\s*/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
