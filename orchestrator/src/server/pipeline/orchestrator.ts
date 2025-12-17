@@ -279,7 +279,10 @@ export async function runPipeline(config: Partial<PipelineConfig> = {}): Promise
 /**
  * Process a single job (for manual processing).
  */
-export async function processJob(jobId: string): Promise<{
+export async function processJob(
+  jobId: string,
+  options?: { force?: boolean }
+): Promise<{
   success: boolean;
   error?: string;
 }> {
@@ -290,14 +293,31 @@ export async function processJob(jobId: string): Promise<{
     if (!job) {
       return { success: false, error: 'Job not found' };
     }
+
+    if (job.status !== 'discovered' && job.status !== 'ready') {
+      return { success: false, error: `Job cannot be processed from status: ${job.status}` };
+    }
     
     const profile = await loadProfile(DEFAULT_PROFILE_PATH);
     
     // Mark as processing
     await jobsRepo.updateJob(job.id, { status: 'processing' });
+
+    // Re-score job suitability (AI)
+    // If forcing, always recompute; otherwise compute if missing.
+    if (options?.force || job.suitabilityScore == null || !job.suitabilityReason) {
+      const suitability = await scoreJobSuitability(job, profile);
+      await jobsRepo.updateJob(job.id, {
+        suitabilityScore: suitability.score,
+        suitabilityReason: suitability.reason,
+      });
+      job.suitabilityScore = suitability.score;
+      job.suitabilityReason = suitability.reason;
+    }
     
-    // Generate summary if not already done
-    if (!job.tailoredSummary) {
+    // Generate summary (AI)
+    // If forcing, always recompute; otherwise compute if missing.
+    if (options?.force || !job.tailoredSummary) {
       console.log('   Generating summary...');
       const summaryResult = await generateSummary(
         job.jobDescription || '',

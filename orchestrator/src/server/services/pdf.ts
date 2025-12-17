@@ -6,7 +6,7 @@
 import { spawn } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { readFile, writeFile, mkdir, access } from 'fs/promises';
+import { readFile, writeFile, mkdir, access, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 
 import { getSetting } from '../repositories/settings.js';
@@ -101,6 +101,13 @@ export async function generatePdf(
     // Generate PDF using Python script - output directly to our data folder
     const outputFilename = `resume_${jobId}.pdf`;
     const outputPath = join(OUTPUT_DIR, outputFilename);
+
+    // Ensure regeneration overwrites the old file if it exists.
+    try {
+      await unlink(outputPath);
+    } catch {
+      // Ignore if it doesn't exist or cannot be removed.
+    }
     
     await runPythonPdfGenerator(tempResumePath, outputFilename, OUTPUT_DIR);
     

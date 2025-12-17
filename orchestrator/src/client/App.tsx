@@ -116,8 +116,10 @@ export const App: React.FC = () => {
   const handleProcess = async (jobId: string) => {
     try {
       setProcessingJobId(jobId);
-      await api.processJob(jobId);
-      toast.success("Resume generated successfully");
+      const job = jobs.find((item) => item.id === jobId);
+      const force = job?.status === "ready";
+      await api.processJob(jobId, { force });
+      toast.success(force ? "Resume regenerated successfully" : "Resume generated successfully");
       await loadJobs();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to process job";

@@ -215,7 +215,7 @@ export const JobTable: React.FC<JobTableProps> = ({
           const pdfHref = `/pdfs/resume_${job.id}.pdf`;
 
           const canApply = job.status === "ready";
-          const canProcess = job.status === "discovered";
+          const canProcess = ["discovered", "ready"].includes(job.status);
           const canReject = ["discovered", "ready"].includes(job.status);
           const isProcessing = processingJobId === job.id;
           const isSelected = selectedJobIds.has(job.id);
@@ -240,7 +240,7 @@ export const JobTable: React.FC<JobTableProps> = ({
                   asChild
                   variant="link"
                   size="sm"
-                  className="h-auto justify-start p-0 text-left leading-snug whitespace-normal break-words"
+                  className="h-auto justify-start p-0 text-left leading-snug whitespace-normal wrap-break-word"
                 >
                   <a href={jobLink} target="_blank" rel="noopener noreferrer">
                     {job.title}
@@ -248,7 +248,7 @@ export const JobTable: React.FC<JobTableProps> = ({
                 </Button>
               </TableCell>
 
-              <TableCell className="align-middle whitespace-normal break-words">
+              <TableCell className="align-middle whitespace-normal wrap-break-word">
                 {job.employer}
               </TableCell>
 
@@ -258,7 +258,7 @@ export const JobTable: React.FC<JobTableProps> = ({
                 </Badge>
               </TableCell>
 
-              <TableCell className="align-middle whitespace-normal break-words text-muted-foreground">
+              <TableCell className="align-middle whitespace-normal wrap-break-word text-muted-foreground">
                 {job.location || "—"}
               </TableCell>
 
@@ -331,7 +331,11 @@ export const JobTable: React.FC<JobTableProps> = ({
                         disabled={isProcessing}
                       >
                         <RefreshCcw className="mr-2 h-4 w-4" />
-                        {isProcessing ? "Processing..." : "Generate Resume"}
+                        {isProcessing
+                          ? "Processing..."
+                          : job.status === "ready"
+                            ? "Regenerate PDF"
+                            : "Generate Resume"}
                       </DropdownMenuItem>
                     )}
 

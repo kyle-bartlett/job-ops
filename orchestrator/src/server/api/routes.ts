@@ -133,7 +133,10 @@ apiRouter.patch('/jobs/:id', async (req: Request, res: Response) => {
  */
 apiRouter.post('/jobs/:id/process', async (req: Request, res: Response) => {
   try {
-    const result = await processJob(req.params.id);
+    const forceRaw = req.query.force as string | undefined;
+    const force = forceRaw === '1' || forceRaw === 'true';
+
+    const result = await processJob(req.params.id, { force });
     
     if (!result.success) {
       return res.status(400).json({ success: false, error: result.error });

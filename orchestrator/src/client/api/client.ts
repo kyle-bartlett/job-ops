@@ -56,8 +56,9 @@ export async function updateJob(
   });
 }
 
-export async function processJob(id: string): Promise<Job> {
-  return fetchApi<Job>(`/jobs/${id}/process`, {
+export async function processJob(id: string, options?: { force?: boolean }): Promise<Job> {
+  const query = options?.force ? '?force=1' : '';
+  return fetchApi<Job>(`/jobs/${id}/process${query}`, {
     method: 'POST',
   });
 }

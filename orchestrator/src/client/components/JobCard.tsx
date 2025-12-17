@@ -68,7 +68,7 @@ export const JobCard: React.FC<JobCardProps> = ({
 
   const hasPdf = !!job.pdfPath;
   const canApply = job.status === "ready";
-  const canProcess = job.status === "discovered";
+  const canProcess = ["discovered", "ready"].includes(job.status);
   const canReject = ["discovered", "ready"].includes(job.status);
 
   const jobLink = job.applicationLink || job.jobUrl;
@@ -200,7 +200,7 @@ export const JobCard: React.FC<JobCardProps> = ({
             ) : (
               <>
                 <RefreshCcw className="mr-2 h-4 w-4" />
-                Generate Resume
+                {job.status === "ready" ? "Regenerate PDF" : "Generate Resume"}
               </>
             )}
           </Button>
