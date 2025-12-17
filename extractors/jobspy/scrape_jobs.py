@@ -46,6 +46,7 @@ def main() -> int:
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     output_json.parent.mkdir(parents=True, exist_ok=True)
 
+    print(f"jobspy: Search term: {search_term}")
     jobs = scrape_jobs(
         site_name=sites,
         search_term=search_term,

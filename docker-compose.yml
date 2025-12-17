@@ -36,7 +36,7 @@ services:
       # JobSpy (Indeed/LinkedIn scraping) - optional
       - JOBSPY_SITES=${JOBSPY_SITES:-indeed,linkedin}
       # Preferred: pipe-separated list, e.g. "web developer|frontend developer|react developer"
-      - JOBSPY_SEARCH_TERMS=${JOBSPY_SEARCH_TERMS:-web developer|frontend developer|react developer}
+      - JOBSPY_SEARCH_TERMS=${JOBSPY_SEARCH_TERMS:-web developer|graduate web developer|react developer|graduate software engineer|graduate react developer|next js developer|graduate front end developer}
       - JOBSPY_LOCATION=${JOBSPY_LOCATION:-UK}
       - JOBSPY_RESULTS_WANTED=${JOBSPY_RESULTS_WANTED:-200}
       - JOBSPY_HOURS_OLD=${JOBSPY_HOURS_OLD:-72}
