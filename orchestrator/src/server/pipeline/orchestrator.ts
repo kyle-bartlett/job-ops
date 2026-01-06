@@ -397,21 +397,8 @@ export async function processJob(
     // Mark as processing
     await jobsRepo.updateJob(job.id, { status: 'processing' });
 
-    // Re-score job suitability (AI)
-    // If forcing, always recompute; otherwise compute if missing.
-    if (options?.force || job.suitabilityScore == null || !job.suitabilityReason) {
-      const suitability = await scoreJobSuitability(job, profile);
-      await jobsRepo.updateJob(job.id, {
-        suitabilityScore: suitability.score,
-        suitabilityReason: suitability.reason,
-      });
-      job.suitabilityScore = suitability.score;
-      job.suitabilityReason = suitability.reason;
-    }
-
-    // Generate summary (AI)
-    // If forcing, always recompute; otherwise compute if missing.
-    if (options?.force || !job.tailoredSummary) {
+    // Generate summary (AI) if missing
+    if (!job.tailoredSummary) {
       console.log('   Generating summary...');
       const summaryResult = await generateSummary(
         job.jobDescription || '',
