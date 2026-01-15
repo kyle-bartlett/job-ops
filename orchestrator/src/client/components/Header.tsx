@@ -8,7 +8,6 @@ import {
   Loader2,
   Play,
   RefreshCcw,
-  Rocket,
   Settings,
   Shield,
   Trash2,
@@ -80,8 +79,12 @@ export const Header: React.FC<HeaderProps> = ({
           to='/'
           className='flex items-center gap-3 hover:opacity-80 transition-opacity'
         >
-          <div className='flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm'>
-            <Rocket className='h-5 w-5' />
+          <div className='flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-transparent shadow-sm'>
+            <img
+              src='/favicon.png'
+              alt='Job Ops Logo'
+              className='h-full w-full object-contain'
+            />
           </div>
           <div className='leading-tight'>
             <div className='text-sm font-semibold tracking-tight'>Job Ops</div>
