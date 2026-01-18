@@ -400,9 +400,6 @@ export const UkVisaJobsPage: React.FC = () => {
               <div className="text-sm font-semibold tracking-tight">UK Visa Jobs</div>
               <div className="text-xs text-muted-foreground">Live search console</div>
             </div>
-            <Badge variant="outline" className="hidden sm:inline-flex uppercase tracking-wide">
-              API search
-            </Badge>
           </div>
         </div>
       </header>
