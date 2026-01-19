@@ -470,7 +470,13 @@ apiRouter.patch('/settings', async (req: Request, res: Response) => {
       if (resumeProjects === null) {
         await settingsRepo.setSetting('resumeProjects', null);
       } else {
-        const profile = (await loadResumeProfile()) as Record<string, unknown>;
+        const rawProfile = await loadResumeProfile();
+
+        if (rawProfile === null || typeof rawProfile !== 'object' || Array.isArray(rawProfile)) {
+          throw new Error('Invalid resume profile format: expected a non-null object');
+        }
+
+        const profile = rawProfile as Record<string, unknown>;
         const { catalog } = extractProjectsFromProfile(profile);
         const allowed = new Set(catalog.map((p) => p.id));
         const normalized = normalizeResumeProjectsSettings(resumeProjects, allowed);
@@ -761,8 +767,8 @@ const manualJobImportSchema = z.object({
   job: z.object({
     title: z.string().trim().min(1).max(500),
     employer: z.string().trim().min(1).max(500),
-    jobUrl: z.string().trim().max(2000).optional(),
-    applicationLink: z.string().trim().max(2000).optional(),
+    jobUrl: z.string().trim().url().max(2000).optional(),
+    applicationLink: z.string().trim().url().max(2000).optional(),
     location: z.string().trim().max(200).optional(),
     salary: z.string().trim().max(200).optional(),
     deadline: z.string().trim().max(100).optional(),
@@ -842,7 +848,11 @@ apiRouter.post('/manual-jobs/import', async (req: Request, res: Response) => {
     // Score asynchronously so the import returns immediately.
     (async () => {
       try {
-        const profile = (await loadResumeProfile()) as Record<string, unknown>;
+        const rawProfile = await loadResumeProfile();
+        if (!rawProfile || typeof rawProfile !== 'object' || Array.isArray(rawProfile)) {
+          throw new Error('Invalid resume profile format');
+        }
+        const profile = rawProfile as Record<string, unknown>;
         const { score, reason } = await scoreJobSuitability(createdJob, profile);
         await jobsRepo.updateJob(createdJob.id, {
           suitabilityScore: score,
