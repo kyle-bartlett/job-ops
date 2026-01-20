@@ -50,6 +50,7 @@ export const JobListPanel: React.FC<JobListPanelProps> = ({
               key={job.id}
               type="button"
               onClick={() => onSelectJob(job.id)}
+              data-testid={`select-${job.id}`}
               className={cn(
                 "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
                 isSelected
