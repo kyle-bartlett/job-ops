@@ -13,28 +13,25 @@ export const DEFAULT_RESUME_PROFILE_PATH =
 type ResumeProjectSelectionItem = ResumeProjectCatalogItem & { summaryText: string };
 
 export async function loadResumeProfile(profilePath: string = DEFAULT_RESUME_PROFILE_PATH): Promise<unknown> {
-  try {
-    const rxResumeBaseResumeId = await getSetting('rxResumeBaseResumeId');
-    if (rxResumeBaseResumeId) {
+  const rxResumeBaseResumeId = await getSetting('rxResumeBaseResumeId');
+
+  if (rxResumeBaseResumeId) {
+    try {
       const resume = await getResume(rxResumeBaseResumeId);
       return resume.data;
+    } catch (error) {
+      console.error(`❌ Failed to load resume from Reactive Resume (${rxResumeBaseResumeId}):`, error);
+      throw new Error(`Failed to load profile from Reactive Resume (ID: ${rxResumeBaseResumeId}). Please check your API key and connection.`);
     }
+  }
 
+  // Fallback to local file
+  try {
     const { readFile } = await import('fs/promises');
     const content = await readFile(profilePath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    console.warn(`Failed to load profile, using fallback if possible`, error);
-    // If Reactive Resume failed but we have a path, try reading file
-    if (profilePath) {
-      try {
-        const { readFile } = await import('fs/promises');
-        const content = await readFile(profilePath, 'utf-8');
-        return JSON.parse(content);
-      } catch (innerError) {
-        // ignore
-      }
-    }
+    console.warn(`⚠️ No local profile found at ${profilePath} and no Reactive Resume base ID is configured. Reactive Resume integration is required for tailoring.`);
     return {};
   }
 }

@@ -96,7 +96,7 @@ export const ReactiveResumeSection: React.FC<ReactiveResumeSectionProps> = ({
                                         <SelectValue placeholder="Select a base resume..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="none">None (Fallback to local base.json)</SelectItem>
+                                        <SelectItem value="none">None (No profile data will be loaded)</SelectItem>
                                         {resumes.map((resume) => (
                                             <SelectItem key={resume.id} value={resume.id}>
                                                 {resume.name}

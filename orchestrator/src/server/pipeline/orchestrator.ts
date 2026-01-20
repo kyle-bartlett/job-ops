@@ -553,17 +553,23 @@ export function getPipelineStatus(): { isRunning: boolean } {
  * Load the user profile from JSON file.
  */
 async function loadProfile(profilePath: string): Promise<Record<string, unknown>> {
-  try {
-    const rxResumeBaseResumeId = await settingsRepo.getSetting('rxResumeBaseResumeId');
-    if (rxResumeBaseResumeId) {
+  const rxResumeBaseResumeId = await settingsRepo.getSetting('rxResumeBaseResumeId');
+  if (rxResumeBaseResumeId) {
+    try {
       const resume = await getResume(rxResumeBaseResumeId);
       return resume.data as Record<string, unknown>;
+    } catch (error) {
+      console.error(`❌ Failed to load resume from Reactive Resume (${rxResumeBaseResumeId}):`, error);
+      throw new Error(`Failed to load profile from Reactive Resume (ID: ${rxResumeBaseResumeId}). Please check your API key and connection.`);
     }
+  }
 
+  try {
     const content = await readFile(profilePath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    console.warn(`Failed to load profile from ${profilePath}, using empty object`, error);
-    return {};
+    const message = `No local profile found at ${profilePath} and no Reactive Resume base ID is configured. Reactive Resume integration is required for tailoring.`;
+    console.error(`❌ ${message}`);
+    throw new Error(message);
   }
 }
