@@ -108,26 +108,32 @@ const SponsorPill: React.FC<SponsorPillProps> = ({ score, names, onCheck }) => {
     return null;
   }
 
-  const canSponsor = score >= 95;
-  const label = canSponsor ? "Can Sponsor" : "Unsure if Sponsor";
-  const dotClass = canSponsor ? "bg-emerald-500" : "bg-slate-500";
-  const tooltipContent = canSponsor
-    ? `${score}% match`
-    : `Closest: ${parsedNames.join(", ")} (${score}% match)`;
+  const getStatus = (s: number) => {
+    if (s >= 95) return { label: "Confirmed Sponsor", dot: "bg-emerald-500", color: "text-emerald-400" };
+    if (s >= 80) return { label: "Potential Sponsor", dot: "bg-amber-500", color: "text-amber-400" };
+    return { label: "Sponsor Not Found", dot: "bg-slate-500", color: "text-slate-400" };
+  };
+
+  const status = getStatus(score);
+  const tooltipContent = `${score}% match${parsedNames.length > 0 ? `: ${parsedNames.join(", ")}` : ""}`;
 
   return (
     <TooltipProvider>
       <Tooltip delayDuration={0}>
         <TooltipTrigger asChild>
           <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80 cursor-help">
-            <span className={cn("h-1.5 w-1.5 rounded-full opacity-80", dotClass)} />
-            {label}
+            <span className={cn("h-1.5 w-1.5 rounded-full opacity-80", status.dot)} />
+            {status.label}
           </span>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs">
-          {canSponsor && <p className="text-xs font-medium">{parsedNames.join(", ")}</p>}
-          {!canSponsor && <p className="text-xs font-medium">Unsure if sponsor</p>}
-          <p className="opacity-80 mt-1 text-xs">{tooltipContent}</p>
+          {parsedNames.length > 0 && (
+            <p className="text-xs font-medium space-x-1">
+              <span className="opacity-70">Matched:</span>
+              <span>{parsedNames.join(", ")}</span>
+            </p>
+          )}
+          <p className="opacity-80 mt-1 text-[10px]">{tooltipContent}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
