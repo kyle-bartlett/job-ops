@@ -1,4 +1,3 @@
-import { safeFilenamePart, stripHtml } from "@/lib/utils";
 import type { Job } from "../../../shared/types";
 import type { FilterTab, JobSort } from "./constants";
 

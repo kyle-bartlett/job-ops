@@ -15,7 +15,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -26,14 +25,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { cn, copyTextToClipboard, formatJobForWebhook, safeFilenamePart, stripHtml } from "@/lib/utils";
+import { copyTextToClipboard, formatJobForWebhook, safeFilenamePart, stripHtml } from "@/lib/utils";
 
 import { DiscoveredPanel, FitAssessment, JobHeader, TailoredSummary } from "../../components";
 import { ReadyPanel } from "../../components/ReadyPanel";
 import { TailoringEditor } from "../../components/TailoringEditor";
 import * as api from "../../api";
-import type { Job, JobStatus } from "../../../shared/types";
-import { defaultStatusToken, statusTokens } from "./constants";
+import type { Job } from "../../../shared/types";
 import type { FilterTab } from "./constants";
 
 interface JobDetailPanelProps {
