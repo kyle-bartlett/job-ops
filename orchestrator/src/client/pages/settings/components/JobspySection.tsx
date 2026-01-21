@@ -127,7 +127,7 @@ export const JobspySection: React.FC<JobspySectionProps> = ({
                     inputMode="numeric"
                     min={1}
                     max={1000}
-                    value={field.value ?? ""}
+                    value={field.value ?? resultsWanted.default}
                     onChange={(event) => {
                       const value = parseInt(event.target.value, 10)
                       if (Number.isNaN(value)) {
@@ -161,7 +161,7 @@ export const JobspySection: React.FC<JobspySectionProps> = ({
                     inputMode="numeric"
                     min={1}
                     max={720}
-                    value={field.value ?? ""}
+                    value={field.value ?? hoursOld.default}
                     onChange={(event) => {
                       const value = parseInt(event.target.value, 10)
                       if (Number.isNaN(value)) {

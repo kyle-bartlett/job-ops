@@ -39,7 +39,7 @@ export const UkvisajobsSection: React.FC<UkvisajobsSectionProps> = ({
                   inputMode="numeric"
                   min={1}
                   max={1000}
-                  value={field.value ?? ""}
+                  value={field.value ?? defaultUkvisajobsMaxJobs}
                   onChange={(event) => {
                     const value = parseInt(event.target.value, 10)
                     if (Number.isNaN(value)) {
