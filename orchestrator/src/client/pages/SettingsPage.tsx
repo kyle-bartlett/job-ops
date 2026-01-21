@@ -1,51 +1,100 @@
-/**
- * Settings page.
- */
-
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { Settings } from "lucide-react"
 import { toast } from "sonner"
+import { useForm, FormProvider } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 
-import { PageHeader } from "../components/layout"
+import { PageHeader } from "@client/components/layout"
 import { Accordion } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
-import type { AppSettings, JobStatus, ResumeProjectsSettings } from "../../shared/types"
-import * as api from "../api"
-import { arraysEqual } from "@/lib/utils"
-import { resumeProjectsEqual } from "./settings/utils"
-import { DangerZoneSection } from "./settings/components/DangerZoneSection"
-import { DisplaySettingsSection } from "./settings/components/DisplaySettingsSection"
-import { GradcrackerSection } from "./settings/components/GradcrackerSection"
-import { JobCompleteWebhookSection } from "./settings/components/JobCompleteWebhookSection"
-import { JobspySection } from "./settings/components/JobspySection"
-import { ModelSettingsSection } from "./settings/components/ModelSettingsSection"
-import { PipelineWebhookSection } from "./settings/components/PipelineWebhookSection"
-import { ResumeProjectsSection } from "./settings/components/ResumeProjectsSection"
-import { SearchTermsSection } from "./settings/components/SearchTermsSection"
-import { UkvisajobsSection } from "./settings/components/UkvisajobsSection"
+import type { AppSettings, JobStatus } from "@shared/types"
+import { updateSettingsSchema, type UpdateSettingsInput } from "@shared/settings-schema"
+import * as api from "@client/api"
+import { resumeProjectsEqual } from "@client/pages/settings/utils"
+import { DangerZoneSection } from "@client/pages/settings/components/DangerZoneSection"
+import { DisplaySettingsSection } from "@client/pages/settings/components/DisplaySettingsSection"
+import { GradcrackerSection } from "@client/pages/settings/components/GradcrackerSection"
+import { JobCompleteWebhookSection } from "@client/pages/settings/components/JobCompleteWebhookSection"
+import { JobspySection } from "@client/pages/settings/components/JobspySection"
+import { ModelSettingsSection } from "@client/pages/settings/components/ModelSettingsSection"
+import { PipelineWebhookSection } from "@client/pages/settings/components/PipelineWebhookSection"
+import { ResumeProjectsSection } from "@client/pages/settings/components/ResumeProjectsSection"
+import { SearchTermsSection } from "@client/pages/settings/components/SearchTermsSection"
+import { UkvisajobsSection } from "@client/pages/settings/components/UkvisajobsSection"
+
+const DEFAULT_FORM_VALUES: UpdateSettingsInput = {
+  model: "",
+  modelScorer: "",
+  modelTailoring: "",
+  modelProjectSelection: "",
+  pipelineWebhookUrl: "",
+  jobCompleteWebhookUrl: "",
+  resumeProjects: null,
+  ukvisajobsMaxJobs: null,
+  gradcrackerMaxJobsPerTerm: null,
+  searchTerms: null,
+  jobspyLocation: null,
+  jobspyResultsWanted: null,
+  jobspyHoursOld: null,
+  jobspyCountryIndeed: null,
+  jobspySites: null,
+  jobspyLinkedinFetchDescription: null,
+  showSponsorInfo: null,
+}
+
+const NULL_SETTINGS_PAYLOAD: UpdateSettingsInput = {
+  model: null,
+  modelScorer: null,
+  modelTailoring: null,
+  modelProjectSelection: null,
+  pipelineWebhookUrl: null,
+  jobCompleteWebhookUrl: null,
+  resumeProjects: null,
+  ukvisajobsMaxJobs: null,
+  gradcrackerMaxJobsPerTerm: null,
+  searchTerms: null,
+  jobspyLocation: null,
+  jobspyResultsWanted: null,
+  jobspyHoursOld: null,
+  jobspyCountryIndeed: null,
+  jobspySites: null,
+  jobspyLinkedinFetchDescription: null,
+  showSponsorInfo: null,
+}
+
+const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
+  model: data.overrideModel ?? "",
+  modelScorer: data.overrideModelScorer ?? "",
+  modelTailoring: data.overrideModelTailoring ?? "",
+  modelProjectSelection: data.overrideModelProjectSelection ?? "",
+  pipelineWebhookUrl: data.overridePipelineWebhookUrl ?? "",
+  jobCompleteWebhookUrl: data.overrideJobCompleteWebhookUrl ?? "",
+  resumeProjects: data.resumeProjects,
+  ukvisajobsMaxJobs: data.overrideUkvisajobsMaxJobs,
+  gradcrackerMaxJobsPerTerm: data.overrideGradcrackerMaxJobsPerTerm,
+  searchTerms: data.overrideSearchTerms,
+  jobspyLocation: data.overrideJobspyLocation,
+  jobspyResultsWanted: data.overrideJobspyResultsWanted,
+  jobspyHoursOld: data.overrideJobspyHoursOld,
+  jobspyCountryIndeed: data.overrideJobspyCountryIndeed,
+  jobspySites: data.overrideJobspySites,
+  jobspyLinkedinFetchDescription: data.overrideJobspyLinkedinFetchDescription,
+  showSponsorInfo: data.overrideShowSponsorInfo,
+})
 
 export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings | null>(null)
-  const [modelDraft, setModelDraft] = useState("")
-  const [modelScorerDraft, setModelScorerDraft] = useState("")
-  const [modelTailoringDraft, setModelTailoringDraft] = useState("")
-  const [modelProjectSelectionDraft, setModelProjectSelectionDraft] = useState("")
-  const [pipelineWebhookUrlDraft, setPipelineWebhookUrlDraft] = useState("")
-  const [jobCompleteWebhookUrlDraft, setJobCompleteWebhookUrlDraft] = useState("")
-  const [resumeProjectsDraft, setResumeProjectsDraft] = useState<ResumeProjectsSettings | null>(null)
-  const [ukvisajobsMaxJobsDraft, setUkvisajobsMaxJobsDraft] = useState<number | null>(null)
-  const [gradcrackerMaxJobsPerTermDraft, setGradcrackerMaxJobsPerTermDraft] = useState<number | null>(null)
-  const [searchTermsDraft, setSearchTermsDraft] = useState<string[] | null>(null)
-  const [jobspyLocationDraft, setJobspyLocationDraft] = useState<string | null>(null)
-  const [jobspyResultsWantedDraft, setJobspyResultsWantedDraft] = useState<number | null>(null)
-  const [jobspyHoursOldDraft, setJobspyHoursOldDraft] = useState<number | null>(null)
-  const [jobspyCountryIndeedDraft, setJobspyCountryIndeedDraft] = useState<string | null>(null)
-  const [jobspySitesDraft, setJobspySitesDraft] = useState<string[] | null>(null)
-  const [jobspyLinkedinFetchDescriptionDraft, setJobspyLinkedinFetchDescriptionDraft] = useState<boolean | null>(null)
-  const [showSponsorInfoDraft, setShowSponsorInfoDraft] = useState<boolean | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [statusesToClear, setStatusesToClear] = useState<JobStatus[]>(['discovered'])
+
+  const methods = useForm<UpdateSettingsInput>({
+    resolver: zodResolver(updateSettingsSchema),
+    mode: "onChange",
+    defaultValues: DEFAULT_FORM_VALUES,
+  })
+
+  const { handleSubmit, reset, watch, formState: { isDirty, errors, isValid } } = methods
 
   useEffect(() => {
     let isMounted = true
@@ -55,23 +104,7 @@ export const SettingsPage: React.FC = () => {
       .then((data) => {
         if (!isMounted) return
         setSettings(data)
-        setModelDraft(data.overrideModel ?? "")
-        setModelScorerDraft(data.overrideModelScorer ?? "")
-        setModelTailoringDraft(data.overrideModelTailoring ?? "")
-        setModelProjectSelectionDraft(data.overrideModelProjectSelection ?? "")
-        setPipelineWebhookUrlDraft(data.overridePipelineWebhookUrl ?? "")
-        setJobCompleteWebhookUrlDraft(data.overrideJobCompleteWebhookUrl ?? "")
-        setResumeProjectsDraft(data.resumeProjects)
-        setUkvisajobsMaxJobsDraft(data.overrideUkvisajobsMaxJobs)
-        setGradcrackerMaxJobsPerTermDraft(data.overrideGradcrackerMaxJobsPerTerm)
-        setSearchTermsDraft(data.overrideSearchTerms)
-        setJobspyLocationDraft(data.overrideJobspyLocation)
-        setJobspyResultsWantedDraft(data.overrideJobspyResultsWanted)
-        setJobspyHoursOldDraft(data.overrideJobspyHoursOld)
-        setJobspyCountryIndeedDraft(data.overrideJobspyCountryIndeed)
-        setJobspySitesDraft(data.overrideJobspySites)
-        setJobspyLinkedinFetchDescriptionDraft(data.overrideJobspyLinkedinFetchDescription)
-        setShowSponsorInfoDraft(data.overrideShowSponsorInfo)
+        reset(mapSettingsToForm(data))
       })
       .catch((error) => {
         const message = error instanceof Error ? error.message : "Failed to load settings"
@@ -85,190 +118,79 @@ export const SettingsPage: React.FC = () => {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [reset])
 
   const effectiveModel = settings?.model ?? ""
   const defaultModel = settings?.defaultModel ?? ""
-  const overrideModel = settings?.overrideModel
   const effectiveModelScorer = settings?.modelScorer ?? ""
-  const overrideModelScorer = settings?.overrideModelScorer
   const effectiveModelTailoring = settings?.modelTailoring ?? ""
-  const overrideModelTailoring = settings?.overrideModelTailoring
   const effectiveModelProjectSelection = settings?.modelProjectSelection ?? ""
-  const overrideModelProjectSelection = settings?.overrideModelProjectSelection
   const effectivePipelineWebhookUrl = settings?.pipelineWebhookUrl ?? ""
   const defaultPipelineWebhookUrl = settings?.defaultPipelineWebhookUrl ?? ""
-  const overridePipelineWebhookUrl = settings?.overridePipelineWebhookUrl
   const effectiveJobCompleteWebhookUrl = settings?.jobCompleteWebhookUrl ?? ""
   const defaultJobCompleteWebhookUrl = settings?.defaultJobCompleteWebhookUrl ?? ""
-  const overrideJobCompleteWebhookUrl = settings?.overrideJobCompleteWebhookUrl
   const effectiveUkvisajobsMaxJobs = settings?.ukvisajobsMaxJobs ?? 50
   const defaultUkvisajobsMaxJobs = settings?.defaultUkvisajobsMaxJobs ?? 50
-  const overrideUkvisajobsMaxJobs = settings?.overrideUkvisajobsMaxJobs
   const effectiveGradcrackerMaxJobsPerTerm = settings?.gradcrackerMaxJobsPerTerm ?? 50
   const defaultGradcrackerMaxJobsPerTerm = settings?.defaultGradcrackerMaxJobsPerTerm ?? 50
-  const overrideGradcrackerMaxJobsPerTerm = settings?.overrideGradcrackerMaxJobsPerTerm
   const effectiveSearchTerms = settings?.searchTerms ?? []
   const defaultSearchTerms = settings?.defaultSearchTerms ?? []
-  const overrideSearchTerms = settings?.overrideSearchTerms
   const effectiveJobspyLocation = settings?.jobspyLocation ?? ""
   const defaultJobspyLocation = settings?.defaultJobspyLocation ?? ""
-  const overrideJobspyLocation = settings?.overrideJobspyLocation
   const effectiveJobspyResultsWanted = settings?.jobspyResultsWanted ?? 200
   const defaultJobspyResultsWanted = settings?.defaultJobspyResultsWanted ?? 200
-  const overrideJobspyResultsWanted = settings?.overrideJobspyResultsWanted
   const effectiveJobspyHoursOld = settings?.jobspyHoursOld ?? 72
   const defaultJobspyHoursOld = settings?.defaultJobspyHoursOld ?? 72
-  const overrideJobspyHoursOld = settings?.overrideJobspyHoursOld
   const effectiveJobspyCountryIndeed = settings?.jobspyCountryIndeed ?? ""
   const defaultJobspyCountryIndeed = settings?.defaultJobspyCountryIndeed ?? ""
-  const overrideJobspyCountryIndeed = settings?.overrideJobspyCountryIndeed
   const effectiveJobspySites = settings?.jobspySites ?? ["indeed", "linkedin"]
   const defaultJobspySites = settings?.defaultJobspySites ?? ["indeed", "linkedin"]
-  const overrideJobspySites = settings?.overrideJobspySites
   const effectiveJobspyLinkedinFetchDescription = settings?.jobspyLinkedinFetchDescription ?? true
   const defaultJobspyLinkedinFetchDescription = settings?.defaultJobspyLinkedinFetchDescription ?? true
-  const overrideJobspyLinkedinFetchDescription = settings?.overrideJobspyLinkedinFetchDescription
   const effectiveShowSponsorInfo = settings?.showSponsorInfo ?? true
   const defaultShowSponsorInfo = settings?.defaultShowSponsorInfo ?? true
-  const overrideShowSponsorInfo = settings?.overrideShowSponsorInfo
   const profileProjects = settings?.profileProjects ?? []
   const maxProjectsTotal = profileProjects.length
-  const lockedCount = resumeProjectsDraft?.lockedProjectIds.length ?? 0
 
-  const canSave = useMemo(() => {
-    if (!settings || !resumeProjectsDraft) return false
-    const next = modelDraft.trim()
-    const current = (overrideModel ?? "").trim()
-    const nextScorer = modelScorerDraft.trim()
-    const currentScorer = (overrideModelScorer ?? "").trim()
-    const nextTailoring = modelTailoringDraft.trim()
-    const currentTailoring = (overrideModelTailoring ?? "").trim()
-    const nextProjectSelection = modelProjectSelectionDraft.trim()
-    const currentProjectSelection = (overrideModelProjectSelection ?? "").trim()
-    const nextWebhook = pipelineWebhookUrlDraft.trim()
-    const currentWebhook = (overridePipelineWebhookUrl ?? "").trim()
-    const nextJobCompleteWebhook = jobCompleteWebhookUrlDraft.trim()
-    const currentJobCompleteWebhook = (overrideJobCompleteWebhookUrl ?? "").trim()
-    const ukvisajobsChanged = ukvisajobsMaxJobsDraft !== (overrideUkvisajobsMaxJobs ?? null)
-    const gradcrackerChanged = gradcrackerMaxJobsPerTermDraft !== (overrideGradcrackerMaxJobsPerTerm ?? null)
-    const searchTermsChanged = JSON.stringify(searchTermsDraft) !== JSON.stringify(overrideSearchTerms ?? null)
-    return (
-      next !== current ||
-      nextScorer !== currentScorer ||
-      nextTailoring !== currentTailoring ||
-      nextProjectSelection !== currentProjectSelection ||
-      nextWebhook !== currentWebhook ||
-      nextJobCompleteWebhook !== currentJobCompleteWebhook ||
-      !resumeProjectsEqual(resumeProjectsDraft, settings.resumeProjects) ||
-      ukvisajobsChanged ||
-      gradcrackerChanged ||
-      searchTermsChanged ||
-      jobspyLocationDraft !== (overrideJobspyLocation ?? null) ||
-      jobspyResultsWantedDraft !== (overrideJobspyResultsWanted ?? null) ||
-      jobspyHoursOldDraft !== (overrideJobspyHoursOld ?? null) ||
-      jobspyCountryIndeedDraft !== (overrideJobspyCountryIndeed ?? null) ||
-      JSON.stringify((jobspySitesDraft ?? []).slice().sort()) !== JSON.stringify((overrideJobspySites ?? []).slice().sort()) ||
-      jobspyLinkedinFetchDescriptionDraft !== (overrideJobspyLinkedinFetchDescription ?? null) ||
-      showSponsorInfoDraft !== (overrideShowSponsorInfo ?? null)
-    )
-  }, [
-    settings,
-    modelDraft,
-    modelScorerDraft,
-    modelTailoringDraft,
-    modelProjectSelectionDraft,
-    pipelineWebhookUrlDraft,
-    jobCompleteWebhookUrlDraft,
-    overrideModel,
-    overrideModelScorer,
-    overrideModelTailoring,
-    overrideModelProjectSelection,
-    overridePipelineWebhookUrl,
-    overrideJobCompleteWebhookUrl,
-    resumeProjectsDraft,
-    ukvisajobsMaxJobsDraft,
-    overrideUkvisajobsMaxJobs,
-    gradcrackerMaxJobsPerTermDraft,
-    overrideGradcrackerMaxJobsPerTerm,
-    searchTermsDraft,
-    overrideSearchTerms,
-    jobspyLocationDraft,
-    jobspyResultsWantedDraft,
-    jobspyHoursOldDraft,
-    jobspyCountryIndeedDraft,
-    jobspySitesDraft,
-    jobspyLinkedinFetchDescriptionDraft,
-    showSponsorInfoDraft,
-    overrideJobspyLocation,
-    overrideJobspyResultsWanted,
-    overrideJobspyHoursOld,
-    overrideJobspyCountryIndeed,
-    overrideJobspySites,
-    overrideJobspyLinkedinFetchDescription,
-    overrideShowSponsorInfo,
-  ])
+  const watchedValues = watch()
+  const lockedCount = watchedValues.resumeProjects?.lockedProjectIds.length ?? 0
 
-  const handleSave = async () => {
-    if (!settings || !resumeProjectsDraft) return
+  const canSave = isDirty && isValid
+
+  const onSave = async (data: UpdateSettingsInput) => {
+    if (!settings) return
     try {
       setIsSaving(true)
-      const trimmed = modelDraft.trim()
-      const trimmedScorer = modelScorerDraft.trim()
-      const trimmedTailoring = modelTailoringDraft.trim()
-      const trimmedProjectSelection = modelProjectSelectionDraft.trim()
-      const webhookTrimmed = pipelineWebhookUrlDraft.trim()
-      const jobCompleteTrimmed = jobCompleteWebhookUrlDraft.trim()
-      const resumeProjectsOverride = resumeProjectsEqual(resumeProjectsDraft, settings.defaultResumeProjects)
+      
+      // Prepare payload: nullify if equal to default
+      const resumeProjectsData = data.resumeProjects
+      const resumeProjectsOverride = (resumeProjectsData && settings.defaultResumeProjects && resumeProjectsEqual(resumeProjectsData, settings.defaultResumeProjects))
         ? null
-        : resumeProjectsDraft
-      const ukvisajobsMaxJobsOverride = ukvisajobsMaxJobsDraft === defaultUkvisajobsMaxJobs ? null : ukvisajobsMaxJobsDraft
-      const gradcrackerMaxJobsPerTermOverride = gradcrackerMaxJobsPerTermDraft === defaultGradcrackerMaxJobsPerTerm ? null : gradcrackerMaxJobsPerTermDraft
-      const searchTermsOverride = arraysEqual(searchTermsDraft ?? [], defaultSearchTerms) ? null : searchTermsDraft
-      const jobspyLocationOverride = jobspyLocationDraft === defaultJobspyLocation ? null : jobspyLocationDraft
-      const jobspyResultsWantedOverride = jobspyResultsWantedDraft === defaultJobspyResultsWanted ? null : jobspyResultsWantedDraft
-      const jobspyHoursOldOverride = jobspyHoursOldDraft === defaultJobspyHoursOld ? null : jobspyHoursOldDraft
-      const jobspyCountryIndeedOverride = jobspyCountryIndeedDraft === defaultJobspyCountryIndeed ? null : jobspyCountryIndeedDraft
-      const jobspySitesOverride = arraysEqual((jobspySitesDraft ?? []).slice().sort(), (defaultJobspySites ?? []).slice().sort()) ? null : jobspySitesDraft
-      const jobspyLinkedinFetchDescriptionOverride = jobspyLinkedinFetchDescriptionDraft === defaultJobspyLinkedinFetchDescription ? null : jobspyLinkedinFetchDescriptionDraft
-      const showSponsorInfoOverride = showSponsorInfoDraft === defaultShowSponsorInfo ? null : showSponsorInfoDraft
-      const updated = await api.updateSettings({
-        model: trimmed.length > 0 ? trimmed : null,
-        modelScorer: trimmedScorer.length > 0 ? trimmedScorer : null,
-        modelTailoring: trimmedTailoring.length > 0 ? trimmedTailoring : null,
-        modelProjectSelection: trimmedProjectSelection.length > 0 ? trimmedProjectSelection : null,
-        pipelineWebhookUrl: webhookTrimmed.length > 0 ? webhookTrimmed : null,
-        jobCompleteWebhookUrl: jobCompleteTrimmed.length > 0 ? jobCompleteTrimmed : null,
+        : resumeProjectsData
+
+      const payload: UpdateSettingsInput = {
+        model: data.model?.trim() || null,
+        modelScorer: data.modelScorer?.trim() || null,
+        modelTailoring: data.modelTailoring?.trim() || null,
+        modelProjectSelection: data.modelProjectSelection?.trim() || null,
+        pipelineWebhookUrl: data.pipelineWebhookUrl?.trim() || null,
+        jobCompleteWebhookUrl: data.jobCompleteWebhookUrl?.trim() || null,
         resumeProjects: resumeProjectsOverride,
-        ukvisajobsMaxJobs: ukvisajobsMaxJobsOverride,
-        gradcrackerMaxJobsPerTerm: gradcrackerMaxJobsPerTermOverride,
-        searchTerms: searchTermsOverride,
-        jobspyLocation: jobspyLocationOverride,
-        jobspyResultsWanted: jobspyResultsWantedOverride,
-        jobspyHoursOld: jobspyHoursOldOverride,
-        jobspyCountryIndeed: jobspyCountryIndeedOverride,
-        jobspySites: jobspySitesOverride,
-        jobspyLinkedinFetchDescription: jobspyLinkedinFetchDescriptionOverride,
-        showSponsorInfo: showSponsorInfoOverride,
-      })
+        ukvisajobsMaxJobs: data.ukvisajobsMaxJobs === defaultUkvisajobsMaxJobs ? null : data.ukvisajobsMaxJobs,
+        gradcrackerMaxJobsPerTerm: data.gradcrackerMaxJobsPerTerm === defaultGradcrackerMaxJobsPerTerm ? null : data.gradcrackerMaxJobsPerTerm,
+        searchTerms: JSON.stringify(data.searchTerms) === JSON.stringify(defaultSearchTerms) ? null : data.searchTerms,
+        jobspyLocation: data.jobspyLocation === defaultJobspyLocation ? null : data.jobspyLocation,
+        jobspyResultsWanted: data.jobspyResultsWanted === defaultJobspyResultsWanted ? null : data.jobspyResultsWanted,
+        jobspyHoursOld: data.jobspyHoursOld === defaultJobspyHoursOld ? null : data.jobspyHoursOld,
+        jobspyCountryIndeed: data.jobspyCountryIndeed === defaultJobspyCountryIndeed ? null : data.jobspyCountryIndeed,
+        jobspySites: JSON.stringify((data.jobspySites ?? []).slice().sort()) === JSON.stringify((defaultJobspySites ?? []).slice().sort()) ? null : data.jobspySites,
+        jobspyLinkedinFetchDescription: data.jobspyLinkedinFetchDescription === defaultJobspyLinkedinFetchDescription ? null : data.jobspyLinkedinFetchDescription,
+        showSponsorInfo: data.showSponsorInfo === defaultShowSponsorInfo ? null : data.showSponsorInfo,
+      }
+
+      const updated = await api.updateSettings(payload)
       setSettings(updated)
-      setModelDraft(updated.overrideModel ?? "")
-      setModelScorerDraft(updated.overrideModelScorer ?? "")
-      setModelTailoringDraft(updated.overrideModelTailoring ?? "")
-      setModelProjectSelectionDraft(updated.overrideModelProjectSelection ?? "")
-      setPipelineWebhookUrlDraft(updated.overridePipelineWebhookUrl ?? "")
-      setJobCompleteWebhookUrlDraft(updated.overrideJobCompleteWebhookUrl ?? "")
-      setResumeProjectsDraft(updated.resumeProjects)
-      setUkvisajobsMaxJobsDraft(updated.overrideUkvisajobsMaxJobs)
-      setGradcrackerMaxJobsPerTermDraft(updated.overrideGradcrackerMaxJobsPerTerm)
-      setSearchTermsDraft(updated.overrideSearchTerms)
-      setJobspyLocationDraft(updated.overrideJobspyLocation)
-      setJobspyResultsWantedDraft(updated.overrideJobspyResultsWanted)
-      setJobspyHoursOldDraft(updated.overrideJobspyHoursOld)
-      setJobspyCountryIndeedDraft(updated.overrideJobspyCountryIndeed)
-      setJobspySitesDraft(updated.overrideJobspySites)
-      setJobspyLinkedinFetchDescriptionDraft(updated.overrideJobspyLinkedinFetchDescription)
-      setShowSponsorInfoDraft(updated.overrideShowSponsorInfo)
+      reset(mapSettingsToForm(updated))
       toast.success("Settings saved")
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to save settings"
@@ -277,6 +199,7 @@ export const SettingsPage: React.FC = () => {
       setIsSaving(false)
     }
   }
+
   const handleClearDatabase = async () => {
     try {
       setIsSaving(true)
@@ -335,43 +258,9 @@ export const SettingsPage: React.FC = () => {
   const handleReset = async () => {
     try {
       setIsSaving(true)
-      const updated = await api.updateSettings({
-        model: null,
-        modelScorer: null,
-        modelTailoring: null,
-        modelProjectSelection: null,
-        pipelineWebhookUrl: null,
-        jobCompleteWebhookUrl: null,
-        resumeProjects: null,
-        ukvisajobsMaxJobs: null,
-        gradcrackerMaxJobsPerTerm: null,
-        searchTerms: null,
-        jobspyLocation: null,
-        jobspyResultsWanted: null,
-        jobspyHoursOld: null,
-        jobspyCountryIndeed: null,
-        jobspySites: null,
-        jobspyLinkedinFetchDescription: null,
-        showSponsorInfo: null,
-      })
+      const updated = await api.updateSettings(NULL_SETTINGS_PAYLOAD)
       setSettings(updated)
-      setModelDraft("")
-      setModelScorerDraft("")
-      setModelTailoringDraft("")
-      setModelProjectSelectionDraft("")
-      setPipelineWebhookUrlDraft("")
-      setJobCompleteWebhookUrlDraft("")
-      setResumeProjectsDraft(updated.resumeProjects)
-      setUkvisajobsMaxJobsDraft(null)
-      setGradcrackerMaxJobsPerTermDraft(null)
-      setSearchTermsDraft(null)
-      setJobspyLocationDraft(null)
-      setJobspyResultsWantedDraft(null)
-      setJobspyHoursOldDraft(null)
-      setJobspyCountryIndeedDraft(null)
-      setJobspySitesDraft(null)
-      setJobspyLinkedinFetchDescriptionDraft(null)
-      setShowSponsorInfoDraft(null)
+      reset(mapSettingsToForm(updated))
       toast.success("Reset to default")
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to reset settings"
@@ -382,7 +271,7 @@ export const SettingsPage: React.FC = () => {
   }
 
   return (
-    <>
+    <FormProvider {...methods}>
       <PageHeader
         icon={Settings}
         title="Settings"
@@ -392,14 +281,6 @@ export const SettingsPage: React.FC = () => {
       <main className="container mx-auto max-w-3xl space-y-6 px-4 py-6 pb-12">
         <Accordion type="multiple" className="w-full space-y-4">
           <ModelSettingsSection
-            modelDraft={modelDraft}
-            setModelDraft={setModelDraft}
-            modelScorerDraft={modelScorerDraft}
-            setModelScorerDraft={setModelScorerDraft}
-            modelTailoringDraft={modelTailoringDraft}
-            setModelTailoringDraft={setModelTailoringDraft}
-            modelProjectSelectionDraft={modelProjectSelectionDraft}
-            setModelProjectSelectionDraft={setModelProjectSelectionDraft}
             effectiveModel={effectiveModel}
             effectiveModelScorer={effectiveModelScorer}
             effectiveModelTailoring={effectiveModelTailoring}
@@ -409,76 +290,52 @@ export const SettingsPage: React.FC = () => {
             isSaving={isSaving}
           />
           <PipelineWebhookSection
-            pipelineWebhookUrlDraft={pipelineWebhookUrlDraft}
-            setPipelineWebhookUrlDraft={setPipelineWebhookUrlDraft}
             defaultPipelineWebhookUrl={defaultPipelineWebhookUrl}
             effectivePipelineWebhookUrl={effectivePipelineWebhookUrl}
             isLoading={isLoading}
             isSaving={isSaving}
           />
           <JobCompleteWebhookSection
-            jobCompleteWebhookUrlDraft={jobCompleteWebhookUrlDraft}
-            setJobCompleteWebhookUrlDraft={setJobCompleteWebhookUrlDraft}
             defaultJobCompleteWebhookUrl={defaultJobCompleteWebhookUrl}
             effectiveJobCompleteWebhookUrl={effectiveJobCompleteWebhookUrl}
             isLoading={isLoading}
             isSaving={isSaving}
           />
           <UkvisajobsSection
-            ukvisajobsMaxJobsDraft={ukvisajobsMaxJobsDraft}
-            setUkvisajobsMaxJobsDraft={setUkvisajobsMaxJobsDraft}
             defaultUkvisajobsMaxJobs={defaultUkvisajobsMaxJobs}
             effectiveUkvisajobsMaxJobs={effectiveUkvisajobsMaxJobs}
             isLoading={isLoading}
             isSaving={isSaving}
           />
           <GradcrackerSection
-            gradcrackerMaxJobsPerTermDraft={gradcrackerMaxJobsPerTermDraft}
-            setGradcrackerMaxJobsPerTermDraft={setGradcrackerMaxJobsPerTermDraft}
             defaultGradcrackerMaxJobsPerTerm={defaultGradcrackerMaxJobsPerTerm}
             effectiveGradcrackerMaxJobsPerTerm={effectiveGradcrackerMaxJobsPerTerm}
             isLoading={isLoading}
             isSaving={isSaving}
           />
           <SearchTermsSection
-            searchTermsDraft={searchTermsDraft}
-            setSearchTermsDraft={setSearchTermsDraft}
             defaultSearchTerms={defaultSearchTerms}
             effectiveSearchTerms={effectiveSearchTerms}
             isLoading={isLoading}
             isSaving={isSaving}
           />
           <JobspySection
-            jobspySitesDraft={jobspySitesDraft}
-            setJobspySitesDraft={setJobspySitesDraft}
             defaultJobspySites={defaultJobspySites}
             effectiveJobspySites={effectiveJobspySites}
-            jobspyLocationDraft={jobspyLocationDraft}
-            setJobspyLocationDraft={setJobspyLocationDraft}
             defaultJobspyLocation={defaultJobspyLocation}
             effectiveJobspyLocation={effectiveJobspyLocation}
-            jobspyResultsWantedDraft={jobspyResultsWantedDraft}
-            setJobspyResultsWantedDraft={setJobspyResultsWantedDraft}
             defaultJobspyResultsWanted={defaultJobspyResultsWanted}
             effectiveJobspyResultsWanted={effectiveJobspyResultsWanted}
-            jobspyHoursOldDraft={jobspyHoursOldDraft}
-            setJobspyHoursOldDraft={setJobspyHoursOldDraft}
             defaultJobspyHoursOld={defaultJobspyHoursOld}
             effectiveJobspyHoursOld={effectiveJobspyHoursOld}
-            jobspyCountryIndeedDraft={jobspyCountryIndeedDraft}
-            setJobspyCountryIndeedDraft={setJobspyCountryIndeedDraft}
             defaultJobspyCountryIndeed={defaultJobspyCountryIndeed}
             effectiveJobspyCountryIndeed={effectiveJobspyCountryIndeed}
-            jobspyLinkedinFetchDescriptionDraft={jobspyLinkedinFetchDescriptionDraft}
-            setJobspyLinkedinFetchDescriptionDraft={setJobspyLinkedinFetchDescriptionDraft}
             defaultJobspyLinkedinFetchDescription={defaultJobspyLinkedinFetchDescription}
             effectiveJobspyLinkedinFetchDescription={effectiveJobspyLinkedinFetchDescription}
             isLoading={isLoading}
             isSaving={isSaving}
           />
           <ResumeProjectsSection
-            resumeProjectsDraft={resumeProjectsDraft}
-            setResumeProjectsDraft={setResumeProjectsDraft}
             profileProjects={profileProjects}
             lockedCount={lockedCount}
             maxProjectsTotal={maxProjectsTotal}
@@ -486,8 +343,6 @@ export const SettingsPage: React.FC = () => {
             isSaving={isSaving}
           />
           <DisplaySettingsSection
-            showSponsorInfoDraft={showSponsorInfoDraft}
-            setShowSponsorInfoDraft={setShowSponsorInfoDraft}
             defaultShowSponsorInfo={defaultShowSponsorInfo}
             effectiveShowSponsorInfo={effectiveShowSponsorInfo}
             isLoading={isLoading}
@@ -504,14 +359,19 @@ export const SettingsPage: React.FC = () => {
         </Accordion>
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={handleSave} disabled={isLoading || isSaving || !canSave}>
+          <Button onClick={handleSubmit(onSave)} disabled={isLoading || isSaving || !canSave}>
             {isSaving ? "Saving..." : "Save"}
           </Button>
           <Button variant="outline" onClick={handleReset} disabled={isLoading || isSaving || !settings}>
             Reset to default
           </Button>
         </div>
+        {Object.keys(errors).length > 0 && (
+          <div className="text-destructive text-sm mt-2">
+            Please fix the errors before saving.
+          </div>
+        )}
       </main>
-    </>
+    </FormProvider>
   )
 }

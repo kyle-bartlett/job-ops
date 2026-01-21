@@ -1,12 +1,12 @@
 import React from "react"
+import { useFormContext, Controller } from "react-hook-form"
 
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import { UpdateSettingsInput } from "@shared/settings-schema"
 
 type UkvisajobsSectionProps = {
-  ukvisajobsMaxJobsDraft: number | null
-  setUkvisajobsMaxJobsDraft: (value: number | null) => void
   defaultUkvisajobsMaxJobs: number
   effectiveUkvisajobsMaxJobs: number
   isLoading: boolean
@@ -14,13 +14,13 @@ type UkvisajobsSectionProps = {
 }
 
 export const UkvisajobsSection: React.FC<UkvisajobsSectionProps> = ({
-  ukvisajobsMaxJobsDraft,
-  setUkvisajobsMaxJobsDraft,
   defaultUkvisajobsMaxJobs,
   effectiveUkvisajobsMaxJobs,
   isLoading,
   isSaving,
 }) => {
+  const { control, formState: { errors } } = useFormContext<UpdateSettingsInput>()
+
   return (
     <AccordionItem value="ukvisajobs" className="border rounded-lg px-4">
       <AccordionTrigger className="hover:no-underline py-4">
@@ -30,22 +30,29 @@ export const UkvisajobsSection: React.FC<UkvisajobsSectionProps> = ({
         <div className="space-y-4">
           <div className="space-y-2">
             <div className="text-sm font-medium">Max jobs to fetch</div>
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={1000}
-              value={ukvisajobsMaxJobsDraft ?? defaultUkvisajobsMaxJobs}
-              onChange={(event) => {
-                const value = parseInt(event.target.value, 10)
-                if (Number.isNaN(value)) {
-                  setUkvisajobsMaxJobsDraft(null)
-                } else {
-                  setUkvisajobsMaxJobsDraft(Math.min(1000, Math.max(1, value)))
-                }
-              }}
-              disabled={isLoading || isSaving}
+            <Controller
+              name="ukvisajobsMaxJobs"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={1000}
+                  value={field.value ?? ""}
+                  onChange={(event) => {
+                    const value = parseInt(event.target.value, 10)
+                    if (Number.isNaN(value)) {
+                      field.onChange(null)
+                    } else {
+                      field.onChange(Math.min(1000, Math.max(1, value)))
+                    }
+                  }}
+                  disabled={isLoading || isSaving}
+                />
+              )}
             />
+            {errors.ukvisajobsMaxJobs && <p className="text-xs text-destructive">{errors.ukvisajobsMaxJobs.message}</p>}
             <div className="text-xs text-muted-foreground">
               Maximum number of jobs to fetch from UKVisaJobs per pipeline run. Range: 1-1000.
             </div>
@@ -68,3 +75,4 @@ export const UkvisajobsSection: React.FC<UkvisajobsSectionProps> = ({
     </AccordionItem>
   )
 }
+

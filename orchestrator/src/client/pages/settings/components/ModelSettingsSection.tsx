@@ -1,18 +1,12 @@
 import React from "react"
+import { useFormContext } from "react-hook-form"
 
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import { UpdateSettingsInput } from "@shared/settings-schema"
 
 type ModelSettingsSectionProps = {
-  modelDraft: string
-  setModelDraft: (value: string) => void
-  modelScorerDraft: string
-  setModelScorerDraft: (value: string) => void
-  modelTailoringDraft: string
-  setModelTailoringDraft: (value: string) => void
-  modelProjectSelectionDraft: string
-  setModelProjectSelectionDraft: (value: string) => void
   effectiveModel: string
   effectiveModelScorer: string
   effectiveModelTailoring: string
@@ -23,14 +17,6 @@ type ModelSettingsSectionProps = {
 }
 
 export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
-  modelDraft,
-  setModelDraft,
-  modelScorerDraft,
-  setModelScorerDraft,
-  modelTailoringDraft,
-  setModelTailoringDraft,
-  modelProjectSelectionDraft,
-  setModelProjectSelectionDraft,
   effectiveModel,
   effectiveModelScorer,
   effectiveModelTailoring,
@@ -39,6 +25,8 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
   isLoading,
   isSaving,
 }) => {
+  const { register, formState: { errors } } = useFormContext<UpdateSettingsInput>()
+
   return (
     <AccordionItem value="model" className="border rounded-lg px-4">
       <AccordionTrigger className="hover:no-underline py-4">
@@ -49,11 +37,11 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
           <div className="space-y-2">
             <div className="text-sm font-medium">Override model</div>
             <Input
-              value={modelDraft}
-              onChange={(event) => setModelDraft(event.target.value)}
+              {...register("model")}
               placeholder={defaultModel || "openai/gpt-4o-mini"}
               disabled={isLoading || isSaving}
             />
+            {errors.model && <p className="text-xs text-destructive">{errors.model.message}</p>}
             <div className="text-xs text-muted-foreground">
               Leave blank to use the default from server env (`MODEL`).
             </div>
@@ -68,11 +56,11 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
               <div className="space-y-2">
                 <div className="text-sm">Scoring Model</div>
                 <Input
-                  value={modelScorerDraft}
-                  onChange={(event) => setModelScorerDraft(event.target.value)}
+                  {...register("modelScorer")}
                   placeholder={effectiveModel || "inherit"}
                   disabled={isLoading || isSaving}
                 />
+                {errors.modelScorer && <p className="text-xs text-destructive">{errors.modelScorer.message}</p>}
                 <div className="text-xs text-muted-foreground">
                   Effective: <span className="font-mono">{effectiveModelScorer || effectiveModel}</span>
                 </div>
@@ -81,11 +69,11 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
               <div className="space-y-2">
                 <div className="text-sm">Tailoring Model</div>
                 <Input
-                  value={modelTailoringDraft}
-                  onChange={(event) => setModelTailoringDraft(event.target.value)}
+                  {...register("modelTailoring")}
                   placeholder={effectiveModel || "inherit"}
                   disabled={isLoading || isSaving}
                 />
+                {errors.modelTailoring && <p className="text-xs text-destructive">{errors.modelTailoring.message}</p>}
                 <div className="text-xs text-muted-foreground">
                   Effective: <span className="font-mono">{effectiveModelTailoring || effectiveModel}</span>
                 </div>
@@ -94,11 +82,11 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
               <div className="space-y-2">
                 <div className="text-sm">Project Selection Model</div>
                 <Input
-                  value={modelProjectSelectionDraft}
-                  onChange={(event) => setModelProjectSelectionDraft(event.target.value)}
+                  {...register("modelProjectSelection")}
                   placeholder={effectiveModel || "inherit"}
                   disabled={isLoading || isSaving}
                 />
+                {errors.modelProjectSelection && <p className="text-xs text-destructive">{errors.modelProjectSelection.message}</p>}
                 <div className="text-xs text-muted-foreground">
                   Effective: <span className="font-mono">{effectiveModelProjectSelection || effectiveModel}</span>
                 </div>
@@ -123,3 +111,4 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
     </AccordionItem>
   )
 }
+
