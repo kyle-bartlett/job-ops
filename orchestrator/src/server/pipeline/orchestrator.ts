@@ -113,7 +113,7 @@ export async function runPipeline(config: Partial<PipelineConfig> = {}): Promise
   try {
     // Step 1: Load profile
     console.log('\n📋 Loading profile...');
-    const profile = await getProfile();
+    const profile = await getProfile(mergedConfig.profilePath);
 
     // Step 2: Run crawler
     console.log('\n🕷️ Running crawler...');
@@ -347,7 +347,7 @@ export async function runPipeline(config: Partial<PipelineConfig> = {}): Promise
 
         // Process job (Generate Summary + PDF)
         // We catch errors here to ensure one failure doesn't stop the whole batch
-        const result = await processJob(job.id);
+        const result = await processJob(job.id, { profilePath: mergedConfig.profilePath });
 
         if (result.success) {
           processedCount++;
@@ -414,12 +414,17 @@ export async function runPipeline(config: Partial<PipelineConfig> = {}): Promise
   }
 }
 
+export type ProcessJobOptions = {
+  force?: boolean;
+  profilePath?: string;
+};
+
 /**
  * Step 1: Generate AI summary and suggest projects.
  */
 export async function summarizeJob(
   jobId: string,
-  options?: { force?: boolean }
+  options?: ProcessJobOptions
 ): Promise<{
   success: boolean;
   error?: string;
@@ -430,7 +435,7 @@ export async function summarizeJob(
     const job = await jobsRepo.getJobById(jobId);
     if (!job) return { success: false, error: 'Job not found' };
 
-    const profile = await getProfile();
+    const profile = await getProfile(options?.profilePath);
 
     // 1. Generate Summary & Tailoring
     let tailoredSummary = job.tailoredSummary;
@@ -491,7 +496,8 @@ export async function summarizeJob(
  * Step 2: Generate PDF using current summary and project selection.
  */
 export async function generateFinalPdf(
-  jobId: string
+  jobId: string,
+  options?: ProcessJobOptions
 ): Promise<{
   success: boolean;
   error?: string;
@@ -513,7 +519,7 @@ export async function generateFinalPdf(
         skills: job.tailoredSkills ? JSON.parse(job.tailoredSkills) : []
       },
       job.jobDescription || '',
-      DEFAULT_PROFILE_PATH,
+      options?.profilePath || DEFAULT_PROFILE_PATH,
       job.selectedProjectIds
     );
 
@@ -540,7 +546,7 @@ export async function generateFinalPdf(
  */
 export async function processJob(
   jobId: string,
-  options?: { force?: boolean }
+  options?: ProcessJobOptions
 ): Promise<{
   success: boolean;
   error?: string;
@@ -551,7 +557,7 @@ export async function processJob(
     if (!sumResult.success) return sumResult;
 
     // Step 2: Generate PDF
-    const pdfResult = await generateFinalPdf(jobId);
+    const pdfResult = await generateFinalPdf(jobId, options);
     return pdfResult;
 
   } catch (error) {
