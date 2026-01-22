@@ -98,7 +98,6 @@ export const OnboardingGate: React.FC = () => {
   const hasOpenrouterKey = Boolean(settings?.openrouterApiKeyHint)
   const hasRxresumeEmail = Boolean(settings?.rxresumeEmail?.trim())
   const hasRxresumePassword = Boolean(settings?.rxresumePasswordHint)
-  const hasRxresumeCredentials = hasRxresumeEmail && hasRxresumePassword
   const hasBaseResume = resumeValidation.valid
 
   const shouldOpen = Boolean(settings && !settingsLoading)
