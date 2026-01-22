@@ -110,7 +110,7 @@ def generate_resume_summary(
     load_dotenv()
 
     api_key = os.getenv("OPENROUTER_API_KEY")
-    model = os.getenv("MODEL", "openai/gpt-4o-mini")
+    model = os.getenv("MODEL", "google/gemini-3-flash-preview")
 
     if not api_key:
         raise RuntimeError("Missing OPENROUTER_API_KEY in .env")

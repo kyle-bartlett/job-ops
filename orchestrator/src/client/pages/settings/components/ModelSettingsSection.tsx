@@ -31,7 +31,7 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
           <SettingsInput
             label="Override model"
             inputProps={register("model")}
-            placeholder={defaultModel || "openai/gpt-4o-mini"}
+            placeholder={defaultModel || "google/gemini-3-flash-preview"}
             disabled={isLoading || isSaving}
             error={errors.model?.message as string | undefined}
             helper="Leave blank to use the default from server env (`MODEL`)."

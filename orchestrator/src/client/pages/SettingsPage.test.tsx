@@ -23,14 +23,14 @@ vi.mock("sonner", () => ({
 }))
 
 const baseSettings: AppSettings = {
-  model: "openai/gpt-4o-mini",
-  defaultModel: "openai/gpt-4o-mini",
+  model: "google/gemini-3-flash-preview",
+  defaultModel: "google/gemini-3-flash-preview",
   overrideModel: null,
-  modelScorer: "openai/gpt-4o-mini",
+  modelScorer: "google/gemini-3-flash-preview",
   overrideModelScorer: null,
-  modelTailoring: "openai/gpt-4o-mini",
+  modelTailoring: "google/gemini-3-flash-preview",
   overrideModelTailoring: null,
-  modelProjectSelection: "openai/gpt-4o-mini",
+  modelProjectSelection: "google/gemini-3-flash-preview",
   overrideModelProjectSelection: null,
   pipelineWebhookUrl: "",
   defaultPipelineWebhookUrl: "",
@@ -160,7 +160,7 @@ describe("SettingsPage", () => {
 
     const modelField = screen.getByText("Override model").parentElement ?? screen.getByRole("main")
     const modelInput = within(modelField).getByRole("textbox")
-    
+
     // Change to > 200 chars
     fireEvent.change(modelInput, { target: { value: "a".repeat(201) } })
 

@@ -74,7 +74,7 @@ export async function generateTailoring(
     getSetting('modelTailoring'),
   ]);
   // Precedence: Tailoring-specific override > Global override > Env var > Default
-  const model = overrideModelTailoring || overrideModel || process.env.MODEL || 'openai/gpt-4o-mini';
+  const model = overrideModelTailoring || overrideModel || process.env.MODEL || 'google/gemini-3-flash-preview';
   const prompt = buildTailoringPrompt(profile, jobDescription);
 
   const result = await callOpenRouter<TailoredData>({

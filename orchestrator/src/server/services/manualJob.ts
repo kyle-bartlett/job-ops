@@ -62,7 +62,7 @@ export async function inferManualJobDetails(jobDescription: string): Promise<Man
   }
 
   const overrideModel = await getSetting('model');
-  const model = overrideModel || process.env.MODEL || 'openai/gpt-4o-mini';
+  const model = overrideModel || process.env.MODEL || 'google/gemini-3-flash-preview';
   const prompt = buildInferencePrompt(jobDescription);
 
   const result = await callOpenRouter<ManualJobApiResponse>({

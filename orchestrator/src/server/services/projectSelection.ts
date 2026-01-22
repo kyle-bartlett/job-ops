@@ -43,7 +43,7 @@ export async function pickProjectIdsForJob(args: {
     getSetting('modelProjectSelection'),
   ]);
   // Precedence: Project-specific override > Global override > Env var > Default
-  const model = overrideModelProjectSelection || overrideModel || process.env.MODEL || 'openai/gpt-4o-mini';
+  const model = overrideModelProjectSelection || overrideModel || process.env.MODEL || 'google/gemini-3-flash-preview';
 
   const prompt = buildProjectSelectionPrompt({
     jobDescription: args.jobDescription,

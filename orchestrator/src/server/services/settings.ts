@@ -19,7 +19,7 @@ export async function getEffectiveSettings(): Promise<AppSettings> {
 
   const envSettings = await getEnvSettingsData(overrides);
 
-  const defaultModel = process.env.MODEL || 'openai/gpt-4o-mini';
+  const defaultModel = process.env.MODEL || 'google/gemini-3-flash-preview';
   const overrideModel = overrides.model ?? null;
   const model = overrideModel || defaultModel;
 

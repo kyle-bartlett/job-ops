@@ -49,7 +49,7 @@ export async function scoreJobSuitability(
     getSetting('modelScorer'),
   ]);
   // Precedence: Scorer-specific override > Global override > Env var > Default
-  const model = overrideModelScorer || overrideModel || process.env.MODEL || 'openai/gpt-4o-mini';
+  const model = overrideModelScorer || overrideModel || process.env.MODEL || 'google/gemini-3-flash-preview';
 
   const prompt = buildScoringPrompt(job, profile);
 
