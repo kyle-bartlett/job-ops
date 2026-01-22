@@ -296,21 +296,21 @@ export const SettingsPage: React.FC = () => {
 
       const envPayload: Partial<UpdateSettingsInput> = {}
 
-      if (dirtyFields.rxresumeEmail) {
+      if (dirtyFields.rxresumeEmail || dirtyFields.rxresumePassword) {
         envPayload.rxresumeEmail = normalizeString(data.rxresumeEmail)
       }
 
-      if (dirtyFields.ukvisajobsEmail) {
+      if (dirtyFields.ukvisajobsEmail || dirtyFields.ukvisajobsPassword) {
         envPayload.ukvisajobsEmail = normalizeString(data.ukvisajobsEmail)
       }
 
       if (data.enableBasicAuth === false) {
         envPayload.basicAuthUser = null
         envPayload.basicAuthPassword = null
-      } else {
-        if (dirtyFields.basicAuthUser) {
-          envPayload.basicAuthUser = normalizeString(data.basicAuthUser)
-        }
+      } else if (dirtyFields.enableBasicAuth || dirtyFields.basicAuthUser || dirtyFields.basicAuthPassword) {
+        // If enabling basic auth or changing either field, ensure we send at least the username
+        // to keep the pair consistent in the backend.
+        envPayload.basicAuthUser = normalizeString(data.basicAuthUser)
 
         if (dirtyFields.basicAuthPassword) {
           const value = normalizePrivateInput(data.basicAuthPassword)

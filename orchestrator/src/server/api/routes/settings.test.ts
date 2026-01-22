@@ -56,4 +56,19 @@ describe.sequential('Settings API routes', () => {
     expect(patchBody.data.rxresumeEmail).toBe('updated@example.com');
     expect(patchBody.data.openrouterApiKeyHint).toBe('upda');
   });
+
+  it('validates basic auth requirements', async () => {
+    const res = await fetch(`${baseUrl}/api/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        enableBasicAuth: true,
+        basicAuthUser: '',
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toContain('Username is required');
+  });
 });

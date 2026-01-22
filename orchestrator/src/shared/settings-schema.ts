@@ -33,6 +33,16 @@ export const updateSettingsSchema = z.object({
   ukvisajobsPassword: z.string().trim().max(2000).nullable().optional(),
   webhookSecret: z.string().trim().max(2000).nullable().optional(),
   enableBasicAuth: z.boolean().optional(),
+}).superRefine((data, ctx) => {
+  if (data.enableBasicAuth) {
+    if (!data.basicAuthUser || data.basicAuthUser.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Username is required when basic auth is enabled",
+        path: ["basicAuthUser"],
+      });
+    }
+  }
 });
 
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
