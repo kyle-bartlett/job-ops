@@ -222,6 +222,7 @@ describe('RxResumeClient', () => {
                 const mockFetch = vi.fn().mockResolvedValue({
                     ok: true,
                     status: 200,
+                    headers: { get: vi.fn() },
                     json: async () => ({ accessToken: 'mock-token-123' }),
                 });
                 vi.stubGlobal('fetch', mockFetch);
@@ -235,6 +236,7 @@ describe('RxResumeClient', () => {
                 const mockFetch = vi.fn().mockResolvedValue({
                     ok: true,
                     status: 200,
+                    headers: { get: vi.fn() },
                     json: async () => ({ data: { accessToken: 'nested-token' } }),
                 });
                 vi.stubGlobal('fetch', mockFetch);
@@ -248,6 +250,7 @@ describe('RxResumeClient', () => {
                 const mockFetch = vi.fn().mockResolvedValue({
                     ok: true,
                     status: 200,
+                    headers: { get: vi.fn() },
                     json: async () => ({ token: 'alt-token-field' }),
                 });
                 vi.stubGlobal('fetch', mockFetch);
@@ -274,6 +277,7 @@ describe('RxResumeClient', () => {
                 const mockFetch = vi.fn().mockResolvedValue({
                     ok: true,
                     status: 200,
+                    headers: { get: vi.fn() },
                     json: async () => ({ user: { id: '123' } }),
                 });
                 vi.stubGlobal('fetch', mockFetch);
@@ -489,6 +493,7 @@ describe('RxResumeClient', () => {
             const mockFetch = vi.fn().mockResolvedValue({
                 ok: true,
                 status: 200,
+                headers: { get: vi.fn() },
                 json: async () => ({ accessToken: 'token' }),
             });
             vi.stubGlobal('fetch', mockFetch);

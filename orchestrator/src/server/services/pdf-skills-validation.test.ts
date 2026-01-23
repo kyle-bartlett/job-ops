@@ -1,6 +1,6 @@
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { generatePdf } from './pdf.js';
+import { getProfile } from './profile.js';
 
 // Define mock data in hoisted block
 const { mocks, mockProfile, mockRxResumeClient } = vi.hoisted(() => {
@@ -85,6 +85,11 @@ vi.mock('../repositories/settings.js', () => ({
     getAllSettings: vi.fn().mockResolvedValue({}),
 }));
 
+// Mock the profile service - getProfile now fetches from v4 API
+vi.mock('./profile.js', () => ({
+    getProfile: vi.fn().mockResolvedValue(mockProfile),
+}));
+
 vi.mock('./projectSelection.js', () => ({
     pickProjectIdsForJob: vi.fn().mockResolvedValue([]),
 }));
@@ -138,7 +143,7 @@ vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
 describe('PDF Service Skills Validation', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mocks.readFile.mockResolvedValue(JSON.stringify(mockProfile));
+        vi.mocked(getProfile).mockResolvedValue(mockProfile);
         mockRxResumeClient.clearLastCreateData();
     });
 
@@ -194,7 +199,7 @@ describe('PDF Service Skills Validation', () => {
                 }
             }
         };
-        mocks.readFile.mockResolvedValueOnce(JSON.stringify(invalidProfile));
+        vi.mocked(getProfile).mockResolvedValueOnce(invalidProfile);
 
         // No tailoring, pass dummy path to bypass getProfile cache and use readFile mock
         await generatePdf('job-no-tailor', {}, 'Job Desc', 'dummy.json');
@@ -225,7 +230,7 @@ describe('PDF Service Skills Validation', () => {
                 }
             }
         };
-        mocks.readFile.mockResolvedValueOnce(JSON.stringify(profileWithoutIds));
+        vi.mocked(getProfile).mockResolvedValueOnce(profileWithoutIds);
 
         await generatePdf('job-cuid2-test', {}, 'Job Desc', 'dummy.json');
 
@@ -262,7 +267,7 @@ describe('PDF Service Skills Validation', () => {
                 }
             }
         };
-        mocks.readFile.mockResolvedValueOnce(JSON.stringify(profileWithoutIds));
+        vi.mocked(getProfile).mockResolvedValueOnce(profileWithoutIds);
 
         await generatePdf('job-no-skill-prefix', {}, 'Job Desc', 'dummy.json');
 
@@ -291,7 +296,7 @@ describe('PDF Service Skills Validation', () => {
                 }
             }
         };
-        mocks.readFile.mockResolvedValueOnce(JSON.stringify(profileWithValidId));
+        vi.mocked(getProfile).mockResolvedValueOnce(profileWithValidId);
 
         await generatePdf('job-preserve-id', {}, 'Job Desc', 'dummy.json');
 

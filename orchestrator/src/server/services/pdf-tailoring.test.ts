@@ -88,6 +88,11 @@ vi.mock('../repositories/settings.js', () => ({
     getAllSettings: vi.fn().mockResolvedValue({}),
 }));
 
+// Mock the profile service - getProfile now fetches from v4 API
+vi.mock('./profile.js', () => ({
+    getProfile: vi.fn().mockResolvedValue(mockProfile),
+}));
+
 vi.mock('./projectSelection.js', () => ({
     pickProjectIdsForJob: vi.fn().mockResolvedValue([]),
 }));
