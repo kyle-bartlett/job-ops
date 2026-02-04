@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { StageEvent } from "@shared/types.js";
-import { STAGE_LABELS } from "@shared/types.js";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
 import * as z from "zod";
@@ -24,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { LOGGABLE_STAGE_OPTIONS } from "../constants/loggableStages";
 
 const logEventSchema = z.object({
   stage: z.string(),
@@ -42,20 +42,6 @@ interface LogEventModalProps {
   onLog: (values: LogEventFormValues, eventId?: string) => Promise<void>;
   editingEvent?: StageEvent | null;
 }
-
-const STAGE_OPTIONS = [
-  { label: "No Stage Change (Keep current status)", value: "no_change" },
-  { label: STAGE_LABELS.applied, value: "applied" },
-  { label: STAGE_LABELS.recruiter_screen, value: "recruiter_screen" },
-  { label: STAGE_LABELS.assessment, value: "assessment" },
-  { label: STAGE_LABELS.hiring_manager_screen, value: "hiring_manager_screen" },
-  { label: STAGE_LABELS.technical_interview, value: "technical_interview" },
-  { label: STAGE_LABELS.onsite, value: "onsite" },
-  { label: STAGE_LABELS.offer, value: "offer" },
-  { label: "Rejected", value: "rejected" },
-  { label: "Withdrawn", value: "withdrawn" },
-  { label: STAGE_LABELS.closed, value: "closed" },
-];
 
 const REASON_CODES = ["Skills", "Visa", "Timing", "Culture", "Unknown"];
 
@@ -122,7 +108,9 @@ export const LogEventModal: React.FC<LogEventModalProps> = ({
       if (selectedStage === "no_change") {
         setValue("title", "Update");
       } else {
-        const option = STAGE_OPTIONS.find((o) => o.value === selectedStage);
+        const option = LOGGABLE_STAGE_OPTIONS.find(
+          (o) => o.value === selectedStage,
+        );
         if (option) {
           setValue("title", option.label);
         }
@@ -161,7 +149,7 @@ export const LogEventModal: React.FC<LogEventModalProps> = ({
                     <SelectValue placeholder="Select stage" />
                   </SelectTrigger>
                   <SelectContent>
-                    {STAGE_OPTIONS.map((option) => (
+                    {LOGGABLE_STAGE_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>

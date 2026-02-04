@@ -1,24 +1,13 @@
 /**
  * Conversion Analytics
- * Shows Application → Response conversion metrics including funnel, time-series, and insights.
+ * Shows Application → Response conversion metrics including stage-flow Sankey and time-series insights.
  */
 
 import type { StageEvent } from "@shared/types.js";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useMemo } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  LabelList,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Chart } from "react-google-charts";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -27,12 +16,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
-
-type FunnelStage = {
-  name: string;
-  value: number;
-  fill: string;
-};
+import {
+  getSankeyStageFromEvent,
+  getSankeyStageLabel,
+  LOGGABLE_STAGE_OPTIONS,
+  type SankeyStageValue,
+} from "../../constants/loggableStages";
 
 type ConversionDataPoint = {
   date: string;
@@ -56,24 +45,6 @@ const chartConfig = {
   },
 };
 
-// Stage definitions for funnel
-const FUNNEL_STAGES = [
-  { key: "applied", label: "Applied", color: "#3b82f6" },
-  { key: "screening", label: "Screening", color: "#8b5cf6" },
-  { key: "interview", label: "Interview", color: "#f59e0b" },
-  { key: "offer", label: "Offer", color: "#10b981" },
-] as const;
-
-// Stages that count as "screening"
-const SCREENING_STAGES = new Set(["recruiter_screen", "assessment"]);
-
-// Stages that count as "interview" (for funnel display)
-const INTERVIEW_STAGES = new Set([
-  "hiring_manager_screen",
-  "technical_interview",
-  "onsite",
-]);
-
 // Stages that count as conversion (any positive response from company)
 const CONVERSION_STAGES = new Set([
   "recruiter_screen",
@@ -84,9 +55,6 @@ const CONVERSION_STAGES = new Set([
   "offer",
 ]);
 
-// Stages that count as "offer"
-const OFFER_STAGES = new Set(["offer"]);
-
 const toDateKey = (value: Date) => {
   const year = value.getFullYear();
   const month = `${value.getMonth() + 1}`.padStart(2, "0");
@@ -94,53 +62,49 @@ const toDateKey = (value: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-// Build funnel data from jobs with their stage events
-const buildFunnelData = (jobsWithEvents: JobWithEvents[]): FunnelStage[] => {
-  let applied = 0;
-  let screening = 0;
-  let interview = 0;
-  let offer = 0;
+const SANKEY_STAGE_ORDER = LOGGABLE_STAGE_OPTIONS.filter(
+  (option) => option.value !== "no_change",
+).map((option) => option.value) as SankeyStageValue[];
+
+const buildSankeyRows = (jobsWithEvents: JobWithEvents[]) => {
+  const counts = new Map<string, number>();
 
   for (const job of jobsWithEvents) {
-    if (!job.appliedAt) continue;
-    applied++;
+    const sortedEvents = [...job.events].sort(
+      (a, b) => a.occurredAt - b.occurredAt,
+    );
 
-    const reachedStages = new Set<string>();
-    for (const event of job.events) {
-      reachedStages.add(event.toStage);
-    }
+    for (const event of sortedEvents) {
+      const toStage = getSankeyStageFromEvent(event);
+      const fromStage =
+        event.fromStage === null
+          ? "applied"
+          : event.fromStage === "closed" &&
+              (event.outcome === "rejected" || event.outcome === "withdrawn")
+            ? event.outcome
+            : event.fromStage;
 
-    // Check if reached screening
-    for (const stage of SCREENING_STAGES) {
-      if (reachedStages.has(stage)) {
-        screening++;
-        break;
-      }
-    }
+      if (fromStage === toStage) continue;
 
-    // Check if reached interview
-    for (const stage of INTERVIEW_STAGES) {
-      if (reachedStages.has(stage)) {
-        interview++;
-        break;
-      }
-    }
-
-    // Check if reached offer
-    for (const stage of OFFER_STAGES) {
-      if (reachedStages.has(stage)) {
-        offer++;
-        break;
-      }
+      const transitionKey = `${fromStage}->${toStage}`;
+      counts.set(transitionKey, (counts.get(transitionKey) ?? 0) + 1);
     }
   }
 
-  return [
-    { name: "Applied", value: applied, fill: FUNNEL_STAGES[0].color },
-    { name: "Screening", value: screening, fill: FUNNEL_STAGES[1].color },
-    { name: "Interview", value: interview, fill: FUNNEL_STAGES[2].color },
-    { name: "Offer", value: offer, fill: FUNNEL_STAGES[3].color },
-  ];
+  const rows: Array<[string, string, number]> = [];
+  for (const fromStage of SANKEY_STAGE_ORDER) {
+    for (const toStage of SANKEY_STAGE_ORDER) {
+      const count = counts.get(`${fromStage}->${toStage}`) ?? 0;
+      if (count === 0) continue;
+      rows.push([
+        getSankeyStageLabel(fromStage),
+        getSankeyStageLabel(toStage),
+        count,
+      ]);
+    }
+  }
+
+  return rows;
 };
 
 // Build conversion rate time-series data
@@ -261,8 +225,8 @@ export function ConversionAnalytics({
   error,
   daysToShow,
 }: ConversionAnalyticsProps) {
-  const funnelData = useMemo(() => {
-    return buildFunnelData(jobsWithEvents);
+  const sankeyRows = useMemo(() => {
+    return buildSankeyRows(jobsWithEvents);
   }, [jobsWithEvents]);
 
   const conversionTimeSeries = useMemo(() => {
@@ -309,59 +273,44 @@ export function ConversionAnalytics({
           <div className="px-4 py-6 text-sm text-destructive">{error}</div>
         ) : (
           <div className="space-y-6">
-            {/* Funnel Chart */}
+            {/* Sankey Stage Flow */}
             <div>
               <h4 className="mb-3 text-sm font-medium text-muted-foreground">
-                Funnel: Applied → Screening → Interview → Offer
+                Stage transition flow (Sankey)
               </h4>
-              <ChartContainer
-                config={chartConfig}
-                className="aspect-auto h-[200px] w-full"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={funnelData}
-                    layout="vertical"
-                    margin={{ left: 60, right: 20, top: 5, bottom: 5 }}
-                  >
-                    <CartesianGrid vertical={false} />
-                    <XAxis type="number" hide />
-                    <YAxis
-                      dataKey="name"
-                      type="category"
-                      tickLine={false}
-                      axisLine={false}
-                      width={80}
-                      tick={{ fontSize: 12 }}
-                    />
-                    <Tooltip
-                      cursor={{ fill: "var(--chart-1)", opacity: 0.3 }}
-                      content={({ active, payload }) => {
-                        if (!active || !payload?.length) return null;
-                        const data = payload[0].payload as FunnelStage;
-                        return (
-                          <div className="rounded-lg border border-border/60 bg-background px-3 py-2 text-xs shadow-sm">
-                            <div className="font-medium">{data.name}</div>
-                            <div className="mt-1 text-muted-foreground">
-                              {data.value} applications
-                            </div>
-                          </div>
-                        );
-                      }}
-                    />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                      {funnelData.map((entry) => (
-                        <Cell key={entry.name} fill={entry.fill} />
-                      ))}
-                      <LabelList
-                        dataKey="value"
-                        position="right"
-                        className="text-xs fill-foreground"
-                      />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
+              {sankeyRows.length > 0 ? (
+                <div className="h-[260px] overflow-hidden rounded-lg border border-border/60 bg-background p-2">
+                  <Chart
+                    width="100%"
+                    height="100%"
+                    chartType="Sankey"
+                    loader={
+                      <div className="px-3 py-2 text-xs text-muted-foreground">
+                        Loading stage flow...
+                      </div>
+                    }
+                    data={[["From", "To", "Count"], ...sankeyRows]}
+                    options={{
+                      sankey: {
+                        node: {
+                          label: {
+                            fontName:
+                              "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+                            fontSize: 11,
+                          },
+                          nodePadding: 14,
+                          width: 18,
+                        },
+                      },
+                      backgroundColor: "transparent",
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-xs text-muted-foreground">
+                  No stage transitions logged yet.
+                </div>
+              )}
             </div>
 
             {/* Time Series Chart */}

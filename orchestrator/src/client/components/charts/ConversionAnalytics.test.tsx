@@ -36,12 +36,6 @@ vi.mock("@/components/ui/chart", () => ({
 }));
 
 vi.mock("recharts", () => ({
-  BarChart: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="bar-chart">{children}</div>
-  ),
-  Bar: () => <div data-testid="bar">Bar</div>,
-  Cell: () => <div data-testid="cell">Cell</div>,
-  LabelList: () => <div data-testid="label-list">LabelList</div>,
   LineChart: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="line-chart">{children}</div>
   ),
@@ -50,9 +44,10 @@ vi.mock("recharts", () => ({
   XAxis: () => <div data-testid="x-axis">XAxis</div>,
   YAxis: () => <div data-testid="y-axis">YAxis</div>,
   Tooltip: () => <div data-testid="tooltip">Tooltip</div>,
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
+}));
+
+vi.mock("react-google-charts", () => ({
+  Chart: () => <div data-testid="sankey-chart">SankeyChart</div>,
 }));
 
 vi.mock("lucide-react", () => ({
@@ -242,8 +237,8 @@ describe("ConversionAnalytics - Edge Cases", () => {
     });
   });
 
-  describe("Funnel Data Edge Cases", () => {
-    it("shows all zeros in funnel when no jobs are applied", () => {
+  describe("Sankey Data Edge Cases", () => {
+    it("shows empty-state message when no transitions exist", () => {
       const jobs = [createJob("job-1", null, []), createJob("job-2", null, [])];
 
       render(
@@ -254,8 +249,9 @@ describe("ConversionAnalytics - Edge Cases", () => {
         />,
       );
 
-      // Funnel should still render with 0 values
-      expect(screen.getByTestId("bar-chart")).toBeInTheDocument();
+      expect(
+        screen.getByText("No stage transitions logged yet."),
+      ).toBeInTheDocument();
     });
 
     it("correctly categorizes screening stages (recruiter_screen, assessment)", () => {
@@ -276,8 +272,7 @@ describe("ConversionAnalytics - Edge Cases", () => {
         />,
       );
 
-      // Both recruiter_screen and assessment count as screening
-      expect(screen.getByTestId("bar-chart")).toBeInTheDocument();
+      expect(screen.getByTestId("sankey-chart")).toBeInTheDocument();
     });
 
     it("correctly categorizes interview stages", () => {
@@ -300,7 +295,7 @@ describe("ConversionAnalytics - Edge Cases", () => {
         />,
       );
 
-      expect(screen.getByTestId("bar-chart")).toBeInTheDocument();
+      expect(screen.getByTestId("sankey-chart")).toBeInTheDocument();
     });
 
     it("handles job that reached multiple funnel stages", () => {
@@ -321,8 +316,7 @@ describe("ConversionAnalytics - Edge Cases", () => {
         />,
       );
 
-      // Job should count in all stages it reached
-      expect(screen.getByTestId("bar-chart")).toBeInTheDocument();
+      expect(screen.getByTestId("sankey-chart")).toBeInTheDocument();
     });
   });
 
@@ -386,7 +380,7 @@ describe("ConversionAnalytics - Edge Cases", () => {
       expect(
         screen.getByText("Failed to fetch conversion data"),
       ).toBeInTheDocument();
-      expect(screen.queryByTestId("bar-chart")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("sankey-chart")).not.toBeInTheDocument();
       expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
     });
 
@@ -395,7 +389,9 @@ describe("ConversionAnalytics - Edge Cases", () => {
         <ConversionAnalytics jobsWithEvents={[]} error={null} daysToShow={7} />,
       );
 
-      expect(screen.getByTestId("bar-chart")).toBeInTheDocument();
+      expect(
+        screen.getByText("No stage transitions logged yet."),
+      ).toBeInTheDocument();
       expect(screen.getByTestId("line-chart")).toBeInTheDocument();
     });
   });
