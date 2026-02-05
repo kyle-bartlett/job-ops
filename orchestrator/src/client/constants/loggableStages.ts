@@ -41,9 +41,6 @@ export const getSankeyStageFromEvent = (
   if (event.toStage === "closed") {
     if (event.outcome === "rejected") return "rejected";
     if (event.outcome === "withdrawn") return "withdrawn";
-    if (event.outcome === "no_response" || event.outcome === "ghosted") {
-      return "no_response";
-    }
   }
   return event.toStage;
 };

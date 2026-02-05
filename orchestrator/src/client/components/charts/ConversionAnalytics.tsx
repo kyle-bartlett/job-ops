@@ -93,6 +93,7 @@ const buildSankeyRows = (jobsWithEvents: JobWithEvents[]) => {
     const sortedEvents = [...job.events].sort(
       (a, b) => a.occurredAt - b.occurredAt,
     );
+    let hasProgressBeyondApplied = false;
 
     for (const event of sortedEvents) {
       const toStage = getSankeyStageFromEvent(event);
@@ -104,9 +105,18 @@ const buildSankeyRows = (jobsWithEvents: JobWithEvents[]) => {
             ? event.outcome
             : event.fromStage;
 
+      if (toStage !== "applied") {
+        hasProgressBeyondApplied = true;
+      }
+
       if (fromStage === toStage) continue;
 
       const transitionKey = `${fromStage}->${toStage}`;
+      counts.set(transitionKey, (counts.get(transitionKey) ?? 0) + 1);
+    }
+
+    if (!hasProgressBeyondApplied) {
+      const transitionKey = "applied->no_response";
       counts.set(transitionKey, (counts.get(transitionKey) ?? 0) + 1);
     }
   }
