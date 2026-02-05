@@ -6,6 +6,7 @@ import { logger } from "@infra/logger";
 import type { Job } from "@shared/types";
 import { getSetting } from "../repositories/settings";
 import { type JsonSchemaDefinition, LlmService } from "./llm-service";
+import { getEffectiveSettings } from "./settings";
 
 interface SuitabilityResult {
   score: number; // 0-100
@@ -33,6 +34,47 @@ const SCORING_SCHEMA: JsonSchemaDefinition = {
 };
 
 /**
+ * Check if a job's salary field is missing/empty.
+ * Returns true for null, empty string, or whitespace-only strings.
+ */
+function isSalaryMissing(salary: string | null): boolean {
+  return salary === null || salary.trim() === "";
+}
+
+/**
+ * Apply salary penalty to a score if enabled.
+ * Returns the adjusted score, adjusted reason, and whether penalty was applied.
+ */
+function applySalaryPenalty(
+  job: Job,
+  originalScore: number,
+  originalReason: string,
+  settings: { penalizeMissingSalary: boolean; missingSalaryPenalty: number },
+): { score: number; reason: string; penaltyApplied: boolean } {
+  if (!settings.penalizeMissingSalary || !isSalaryMissing(job.salary)) {
+    return {
+      score: originalScore,
+      reason: originalReason,
+      penaltyApplied: false,
+    };
+  }
+
+  const penalty = settings.missingSalaryPenalty;
+  const adjustedScore = Math.max(0, originalScore - penalty);
+  const penaltyText = `Score reduced by ${penalty} points due to missing salary information.`;
+  const adjustedReason = `${originalReason} ${penaltyText}`;
+
+  logger.info("Applied salary penalty", {
+    jobId: job.id,
+    originalScore,
+    penalty,
+    finalScore: adjustedScore,
+  });
+
+  return { score: adjustedScore, reason: adjustedReason, penaltyApplied: true };
+}
+
+/**
  * Score a job's suitability based on profile and job description.
  * Includes retry logic for when AI returns garbage responses.
  */
@@ -40,9 +82,10 @@ export async function scoreJobSuitability(
   job: Job,
   profile: Record<string, unknown>,
 ): Promise<SuitabilityResult> {
-  const [overrideModel, overrideModelScorer] = await Promise.all([
+  const [overrideModel, overrideModelScorer, settings] = await Promise.all([
     getSetting("model"),
     getSetting("modelScorer"),
+    getEffectiveSettings(),
   ]);
   // Precedence: Scorer-specific override > Global override > Env var > Default
   const model =
@@ -70,7 +113,7 @@ export async function scoreJobSuitability(
       jobId: job.id,
       error: result.error,
     });
-    return mockScore(job);
+    return mockScore(job, settings);
   }
 
   const { score, reason } = result.data;
@@ -80,12 +123,21 @@ export async function scoreJobSuitability(
     logger.error("Invalid score in AI response, using mock scoring", {
       jobId: job.id,
     });
-    return mockScore(job);
+    return mockScore(job, settings);
   }
 
+  const clampedScore = Math.min(100, Math.max(0, Math.round(score)));
+  const clampedReason = reason || "No explanation provided";
+
+  // Apply salary penalty if enabled
+  const penaltyResult = applySalaryPenalty(job, clampedScore, clampedReason, {
+    penalizeMissingSalary: settings.penalizeMissingSalary,
+    missingSalaryPenalty: settings.missingSalaryPenalty,
+  });
+
   return {
-    score: Math.min(100, Math.max(0, Math.round(score))),
-    reason: reason || "No explanation provided",
+    score: penaltyResult.score,
+    reason: penaltyResult.reason,
   };
 }
 
@@ -260,7 +312,10 @@ function sanitizeProfileForPrompt(
   };
 }
 
-function mockScore(job: Job): SuitabilityResult {
+async function mockScore(
+  job: Job,
+  settings: { penalizeMissingSalary: boolean; missingSalaryPenalty: number },
+): Promise<SuitabilityResult> {
   // Simple keyword-based scoring as fallback
   const jd = (job.jobDescription || "").toLowerCase();
   const title = job.title.toLowerCase();
@@ -299,9 +354,14 @@ function mockScore(job: Job): SuitabilityResult {
 
   score = Math.min(100, Math.max(0, score));
 
+  const baseReason = "Scored using keyword matching (API key not configured)";
+
+  // Apply salary penalty if enabled
+  const penaltyResult = applySalaryPenalty(job, score, baseReason, settings);
+
   return {
-    score,
-    reason: "Scored using keyword matching (API key not configured)",
+    score: penaltyResult.score,
+    reason: penaltyResult.reason,
   };
 }
 
