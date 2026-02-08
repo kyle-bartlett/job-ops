@@ -158,16 +158,31 @@ vi.mock("./orchestrator/OrchestratorFilters", () => ({
   OrchestratorFilters: ({
     onTabChange,
     onSearchQueryChange,
+    onSourceFilterChange,
+    onSponsorFilterChange,
+    onSalaryFilterChange,
+    onResetFilters,
     onSortChange,
     sourcesWithJobs,
+    filteredCount,
   }: {
     onTabChange: (t: FilterTab) => void;
     onSearchQueryChange: (q: string) => void;
+    onSourceFilterChange: (source: string) => void;
+    onSponsorFilterChange: (value: string) => void;
+    onSalaryFilterChange: (value: {
+      mode: "at_least" | "at_most" | "between";
+      min: number | null;
+      max: number | null;
+    }) => void;
+    onResetFilters: () => void;
     onSortChange: (s: any) => void;
     sourcesWithJobs: string[];
+    filteredCount: number;
   }) => (
     <div data-testid="filters">
       <div data-testid="sources-with-jobs">{sourcesWithJobs.join(",")}</div>
+      <div data-testid="filtered-count">{filteredCount}</div>
       <button type="button" onClick={() => onTabChange("discovered")}>
         To Discovered
       </button>
@@ -179,6 +194,27 @@ vi.mock("./orchestrator/OrchestratorFilters", () => ({
         onClick={() => onSortChange({ key: "title", direction: "asc" })}
       >
         Set Sort
+      </button>
+      <button type="button" onClick={() => onSourceFilterChange("linkedin")}>
+        Set Source
+      </button>
+      <button type="button" onClick={() => onSponsorFilterChange("confirmed")}>
+        Set Sponsor
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onSalaryFilterChange({
+            mode: "between",
+            min: 60000,
+            max: 90000,
+          })
+        }
+      >
+        Set Salary Range
+      </button>
+      <button type="button" onClick={onResetFilters}>
+        Reset Filters
       </button>
     </div>
   ),
@@ -410,6 +446,57 @@ describe("OrchestratorPage", () => {
     expect(screen.getByTestId("location").textContent).toContain(
       "sort=title-asc",
     );
+  });
+
+  it("syncs source, sponsor, and salary range filters to URL and resets them", () => {
+    window.matchMedia = createMatchMedia(
+      true,
+    ) as unknown as typeof window.matchMedia;
+
+    render(
+      <MemoryRouter initialEntries={["/ready"]}>
+        <LocationWatcher />
+        <Routes>
+          <Route path="/:tab" element={<OrchestratorPage />} />
+          <Route path="/:tab/:jobId" element={<OrchestratorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByText("Set Source"));
+    expect(screen.getByTestId("location").textContent).toContain(
+      "source=linkedin",
+    );
+
+    fireEvent.click(screen.getByText("Set Sponsor"));
+    expect(screen.getByTestId("location").textContent).toContain(
+      "sponsor=confirmed",
+    );
+
+    fireEvent.click(screen.getByText("Set Salary Range"));
+    expect(screen.getByTestId("location").textContent).toContain(
+      "salaryMode=between",
+    );
+    expect(screen.getByTestId("location").textContent).toContain(
+      "salaryMin=60000",
+    );
+    expect(screen.getByTestId("location").textContent).toContain(
+      "salaryMax=90000",
+    );
+
+    fireEvent.click(screen.getByText("Set Sort"));
+    expect(screen.getByTestId("location").textContent).toContain(
+      "sort=title-asc",
+    );
+
+    fireEvent.click(screen.getByText("Reset Filters"));
+    const locationText = screen.getByTestId("location").textContent || "";
+    expect(locationText).not.toContain("source=");
+    expect(locationText).not.toContain("sponsor=");
+    expect(locationText).not.toContain("salaryMode=");
+    expect(locationText).not.toContain("salaryMin=");
+    expect(locationText).not.toContain("salaryMax=");
+    expect(locationText).not.toContain("sort=");
   });
 
   it("opens the detail drawer on mobile when a job is selected", () => {

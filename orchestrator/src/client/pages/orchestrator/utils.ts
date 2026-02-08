@@ -12,6 +12,46 @@ const compareString = (a: string, b: string) =>
   a.localeCompare(b, undefined, { sensitivity: "base" });
 const compareNumber = (a: number, b: number) => a - b;
 
+export const parseSalaryBounds = (
+  job: Job,
+): { min: number; max: number } | null => {
+  if (
+    typeof job.salaryMinAmount === "number" &&
+    Number.isFinite(job.salaryMinAmount)
+  ) {
+    if (
+      typeof job.salaryMaxAmount === "number" &&
+      Number.isFinite(job.salaryMaxAmount)
+    ) {
+      return { min: job.salaryMinAmount, max: job.salaryMaxAmount };
+    }
+    return { min: job.salaryMinAmount, max: job.salaryMinAmount };
+  }
+  if (
+    typeof job.salaryMaxAmount === "number" &&
+    Number.isFinite(job.salaryMaxAmount)
+  ) {
+    return { min: job.salaryMaxAmount, max: job.salaryMaxAmount };
+  }
+  if (!job.salary) return null;
+
+  const normalized = job.salary.toLowerCase().replace(/,/g, "");
+  const values: number[] = [];
+
+  const kPattern = /(\d+(?:\.\d+)?)\s*k\b/g;
+  for (const match of normalized.matchAll(kPattern)) {
+    values.push(Math.round(Number.parseFloat(match[1]) * 1000));
+  }
+
+  const plainPattern = /(\d{4,6}(?:\.\d+)?)/g;
+  for (const match of normalized.matchAll(plainPattern)) {
+    values.push(Math.round(Number.parseFloat(match[1])));
+  }
+
+  if (values.length === 0) return null;
+  return { min: Math.min(...values), max: Math.max(...values) };
+};
+
 export const compareJobs = (a: Job, b: Job, sort: JobSort) => {
   let value = 0;
 
@@ -33,6 +73,21 @@ export const compareJobs = (a: Job, b: Job, sort: JobSort) => {
       if (aScore == null) return 1;
       if (bScore == null) return -1;
       value = compareNumber(aScore, bScore);
+      break;
+    }
+    case "salary": {
+      const aSalary = parseSalaryBounds(a);
+      const bSalary = parseSalaryBounds(b);
+      if (aSalary == null && bSalary == null) {
+        value = 0;
+        break;
+      }
+      if (aSalary == null) return 1;
+      if (bSalary == null) return -1;
+      value = compareNumber(aSalary.max, bSalary.max);
+      if (value === 0) {
+        value = compareNumber(aSalary.min, bSalary.min);
+      }
       break;
     }
     case "discoveredAt": {

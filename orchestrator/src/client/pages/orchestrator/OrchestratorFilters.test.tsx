@@ -1,80 +1,24 @@
 import type { JobSource } from "@shared/types.js";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { describe, expect, it, vi } from "vitest";
-import type { FilterTab, JobSort } from "./constants";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { FilterTab, JobSort, SponsorFilter } from "./constants";
 import { OrchestratorFilters } from "./OrchestratorFilters";
 
-vi.mock("@/components/ui/dropdown-menu", () => {
-  const React = require("react") as typeof import("react");
-  const RadioGroupContext = React.createContext<
-    ((value: string) => void) | null
-  >(null);
+const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
 
-  return {
-    DropdownMenu: ({ children }: { children: React.ReactNode }) => (
-      <div>{children}</div>
-    ),
-    DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => (
-      <>{children}</>
-    ),
-    DropdownMenuContent: ({ children }: { children: React.ReactNode }) => (
-      <div role="menu">{children}</div>
-    ),
-    DropdownMenuItem: ({
-      children,
-      onSelect,
-      ...props
-    }: {
-      children: React.ReactNode;
-      onSelect?: () => void;
-    }) => (
-      <button
-        type="button"
-        role="menuitem"
-        onClick={() => onSelect?.()}
-        {...props}
-      >
-        {children}
-      </button>
-    ),
-    DropdownMenuLabel: ({ children }: { children: React.ReactNode }) => (
-      <div>{children}</div>
-    ),
-    DropdownMenuSeparator: () => <hr />,
-    DropdownMenuRadioGroup: ({
-      children,
-      onValueChange,
-    }: {
-      children: React.ReactNode;
-      onValueChange?: (value: string) => void;
-    }) => (
-      <RadioGroupContext.Provider value={onValueChange ?? null}>
-        <div role="radiogroup">{children}</div>
-      </RadioGroupContext.Provider>
-    ),
-    DropdownMenuRadioItem: ({
-      children,
-      value,
-      checked,
-    }: {
-      children: React.ReactNode;
-      value: string;
-      checked?: boolean;
-    }) => {
-      const onValueChange = React.useContext(RadioGroupContext);
-      return (
-        <button
-          type="button"
-          role="menuitemradio"
-          aria-checked={checked}
-          onClick={() => onValueChange?.(value)}
-        >
-          {children}
-        </button>
-      );
-    },
-  };
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    value: vi.fn(),
+  });
+});
+
+afterAll(() => {
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    value: originalScrollIntoView,
+  });
 });
 
 const renderFilters = (
@@ -93,9 +37,19 @@ const renderFilters = (
     onSearchQueryChange: vi.fn(),
     sourceFilter: "all" as const,
     onSourceFilterChange: vi.fn(),
+    sponsorFilter: "all" as SponsorFilter,
+    onSponsorFilterChange: vi.fn(),
+    salaryFilter: {
+      mode: "at_least" as const,
+      min: null,
+      max: null,
+    },
+    onSalaryFilterChange: vi.fn(),
     sourcesWithJobs: ["gradcracker", "linkedin", "manual"] as JobSource[],
     sort: { key: "score", direction: "desc" } as JobSort,
     onSortChange: vi.fn(),
+    onResetFilters: vi.fn(),
+    filteredCount: 5,
     ...overrides,
   };
 
@@ -118,41 +72,74 @@ describe("OrchestratorFilters", () => {
     expect(props.onSearchQueryChange).toHaveBeenCalledWith("Design");
   });
 
-  it("updates source and sort selections", async () => {
+  it("updates source, sponsor, salary range, and sort from the drawer", async () => {
     const { props } = renderFilters();
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: /all sources/i }));
-    fireEvent.click(
-      await screen.findByRole("menuitemradio", { name: /LinkedIn/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /^filters/i }));
+
+    fireEvent.click(screen.getByRole("button", { name: "LinkedIn" }));
     expect(props.onSourceFilterChange).toHaveBeenCalledWith("linkedin");
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: /score/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Potential sponsor" }));
+    expect(props.onSponsorFilterChange).toHaveBeenCalledWith("potential");
+
+    fireEvent.change(screen.getByLabelText("Minimum"), {
+      target: { value: "65000" },
+    });
+    expect(props.onSalaryFilterChange).toHaveBeenCalledWith({
+      mode: "at_least",
+      min: 65000,
+      max: null,
+    });
+
     fireEvent.click(
-      await screen.findByRole("menuitem", { name: /Direction:/i }),
+      screen.getByRole("combobox", { name: "Salary range specifier" }),
     );
+    fireEvent.click(await screen.findByText("between"));
+    expect(props.onSalaryFilterChange).toHaveBeenCalledWith({
+      mode: "between",
+      min: null,
+      max: null,
+    });
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Sort field" }));
+    fireEvent.click(await screen.findByText("Title"));
+    expect(props.onSortChange).toHaveBeenCalledWith({
+      key: "title",
+      direction: "asc",
+    });
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Sort field" }));
+    fireEvent.click(await screen.findByText("Company"));
+    expect(props.onSortChange).toHaveBeenCalledWith({
+      key: "employer",
+      direction: "asc",
+    });
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Sort order" }));
+    fireEvent.click(await screen.findByText("smallest first"));
     expect(props.onSortChange).toHaveBeenCalledWith({
       key: "score",
       direction: "asc",
     });
   });
 
-  it("only shows sources that exist in jobs", async () => {
-    renderFilters({ sourcesWithJobs: ["gradcracker", "manual"] });
+  it("resets filters and only shows sources present in jobs", () => {
+    const { props } = renderFilters({
+      sourcesWithJobs: ["gradcracker", "manual"],
+    });
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: /all sources/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^filters/i }));
 
     expect(
-      await screen.findByRole("menuitemradio", { name: /Gradcracker/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("menuitemradio", { name: /LinkedIn/i }),
+      screen.queryByRole("button", { name: "LinkedIn" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("menuitemradio", { name: /UK Visa Jobs/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("menuitemradio", { name: /Manual/i }),
+      screen.getByRole("button", { name: "Gradcracker" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Manual" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(props.onResetFilters).toHaveBeenCalled();
   });
 });
