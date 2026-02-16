@@ -57,7 +57,7 @@ describe.sequential("Tracer links routes", () => {
   it("redirects a valid token and records click event", async () => {
     const { db, schema, tracerLinkId, token } = await seedTracerFixtures();
 
-    const res = await fetch(`${baseUrl}/t/${token}`, {
+    const res = await fetch(`${baseUrl}/cv/${token}`, {
       redirect: "manual",
       headers: {
         "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X)",
@@ -80,7 +80,7 @@ describe.sequential("Tracer links routes", () => {
   });
 
   it("returns 404 for unknown tracer token", async () => {
-    const res = await fetch(`${baseUrl}/t/does-not-exist`, {
+    const res = await fetch(`${baseUrl}/cv/does-not-exist`, {
       redirect: "manual",
     });
     expect(res.status).toBe(404);

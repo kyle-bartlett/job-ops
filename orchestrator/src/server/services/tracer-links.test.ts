@@ -36,6 +36,7 @@ describe("tracer-links service", () => {
   it("rewrites all eligible resume url fields", async () => {
     const resumeData = {
       basics: {
+        name: "Sarfaraz Khan",
         url: {
           label: "Portfolio",
           href: "https://portfolio.example.com",
@@ -92,17 +93,18 @@ describe("tracer-links service", () => {
       jobId: "job-1",
       resumeData,
       publicBaseUrl: "https://jobops.example.com",
+      companyName: "Amazon",
     });
 
     expect(result.rewrittenLinks).toBe(3);
     expect(resumeData.basics.url.href).toBe(
-      "https://jobops.example.com/t/tok-1",
+      "https://jobops.example.com/cv/tok-1",
     );
     expect(resumeData.sections.projects.items[0].url.href).toBe(
-      "https://jobops.example.com/t/tok-2",
+      "https://jobops.example.com/cv/tok-2",
     );
     expect(resumeData.sections.profiles.items[0].url.href).toBe(
-      "https://jobops.example.com/t/tok-3",
+      "https://jobops.example.com/cv/tok-3",
     );
 
     // Non-http links are untouched.
@@ -119,6 +121,7 @@ describe("tracer-links service", () => {
       expect.objectContaining({
         jobId: "job-1",
         sourcePath: "basics.url.href",
+        slugPrefix: "sarfaraz-amazon",
       }),
     );
   });

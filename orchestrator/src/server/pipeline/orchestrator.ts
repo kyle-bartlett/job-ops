@@ -352,6 +352,7 @@ export async function generateFinalPdf(
         {
           tracerLinksEnabled: job.tracerLinksEnabled,
           requestOrigin: options?.requestOrigin ?? null,
+          tracerCompanyName: job.employer ?? null,
         },
       );
 

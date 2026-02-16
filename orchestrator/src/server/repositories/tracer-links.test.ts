@@ -48,6 +48,7 @@ describe.sequential("tracer-links repository", () => {
       sourceLabel: "Portfolio",
       destinationUrl: "https://example.com/portfolio",
       destinationUrlHash: "hash-a",
+      slugPrefix: "sarfaraz-amazon",
     });
 
     const second = await repo.getOrCreateTracerLink({
@@ -56,10 +57,12 @@ describe.sequential("tracer-links repository", () => {
       sourceLabel: "Portfolio",
       destinationUrl: "https://example.com/portfolio",
       destinationUrlHash: "hash-a",
+      slugPrefix: "sarfaraz-amazon",
     });
 
     expect(second.id).toBe(first.id);
     expect(second.token).toBe(first.token);
+    expect(first.token).toMatch(/^sarfaraz-amazon-[a-z]{2}$/);
   });
 
   it("creates a new token when destination changes for same source path", async () => {
@@ -71,6 +74,7 @@ describe.sequential("tracer-links repository", () => {
       sourceLabel: "Portfolio",
       destinationUrl: "https://example.com/portfolio-v1",
       destinationUrlHash: "hash-v1",
+      slugPrefix: "sarfaraz-amazon",
     });
 
     const second = await repo.getOrCreateTracerLink({
@@ -79,6 +83,7 @@ describe.sequential("tracer-links repository", () => {
       sourceLabel: "Portfolio",
       destinationUrl: "https://example.com/portfolio-v2",
       destinationUrlHash: "hash-v2",
+      slugPrefix: "sarfaraz-amazon",
     });
 
     expect(second.id).not.toBe(first.id);

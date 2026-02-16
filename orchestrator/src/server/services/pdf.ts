@@ -39,6 +39,7 @@ export interface TailoredPdfContent {
 export interface GeneratePdfOptions {
   tracerLinksEnabled?: boolean;
   requestOrigin?: string | null;
+  tracerCompanyName?: string | null;
 }
 
 /**
@@ -288,6 +289,7 @@ export async function generatePdf(
         jobId,
         resumeData: baseResume,
         publicBaseUrl: tracerBaseUrl,
+        companyName: options.tracerCompanyName ?? null,
       });
     }
 

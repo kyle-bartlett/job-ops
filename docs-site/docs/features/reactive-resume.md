@@ -123,7 +123,7 @@ High-level flow:
 Before generating a PDF, each job can enable/disable tracer links.
 
 - Disabled: original RxResume links remain unchanged.
-- Enabled: eligible outbound links are rewritten to `https://<your-host>/t/<token>`.
+- Enabled: eligible outbound links are rewritten to `https://<your-host>/cv/<first>-<company>-xx`.
 
 For background pipeline generation, configure:
 

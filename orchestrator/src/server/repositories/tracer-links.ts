@@ -3,6 +3,9 @@ import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 
 const { jobs, tracerClickEvents, tracerLinks } = schema;
+const TRACE_CODE_ALPHABET = "abcdefghijklmnopqrstuvwxyz";
+const TRACE_CODE_LENGTH = 2;
+const MAX_TOKEN_GENERATION_ATTEMPTS = 800;
 
 type AnalyticsFilterArgs = {
   jobId?: string | null;
@@ -42,6 +45,30 @@ function normalizeNumber(value: unknown): number {
   return Number(value ?? 0);
 }
 
+function normalizeSlugPrefix(value: string): string {
+  const cleaned = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return cleaned.length > 0 ? cleaned : "candidate-company";
+}
+
+function randomTraceCode(): string {
+  const first =
+    TRACE_CODE_ALPHABET[Math.floor(Math.random() * TRACE_CODE_ALPHABET.length)];
+  const second =
+    TRACE_CODE_ALPHABET[Math.floor(Math.random() * TRACE_CODE_ALPHABET.length)];
+  return `${first}${second}`.slice(0, TRACE_CODE_LENGTH);
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return error.message.toLowerCase().includes("unique constraint failed");
+}
+
 function buildEventFilters(args: AnalyticsFilterArgs) {
   const filters = [];
 
@@ -70,8 +97,10 @@ export async function getOrCreateTracerLink(args: {
   sourceLabel: string;
   destinationUrl: string;
   destinationUrlHash: string;
+  slugPrefix: string;
 }): Promise<typeof tracerLinks.$inferSelect> {
   const now = new Date().toISOString();
+  const slugPrefix = normalizeSlugPrefix(args.slugPrefix);
 
   const [existing] = await db
     .select()
@@ -87,33 +116,47 @@ export async function getOrCreateTracerLink(args: {
 
   if (existing) return existing;
 
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const token = createId();
+  const attemptedCodes = new Set<string>();
 
-    const insertResult = await db
-      .insert(tracerLinks)
-      .values({
-        id: createId(),
-        token,
-        jobId: args.jobId,
-        sourcePath: args.sourcePath,
-        sourceLabel: args.sourceLabel,
-        destinationUrl: args.destinationUrl,
-        destinationUrlHash: args.destinationUrlHash,
-        isActive: true,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .onConflictDoNothing({
-        target: [
-          tracerLinks.jobId,
-          tracerLinks.sourcePath,
-          tracerLinks.destinationUrlHash,
-        ],
-      })
-      .run();
+  for (let attempt = 0; attempt < MAX_TOKEN_GENERATION_ATTEMPTS; attempt++) {
+    const suffix = randomTraceCode();
+    if (attemptedCodes.has(suffix)) {
+      continue;
+    }
+    attemptedCodes.add(suffix);
+    const token = `${slugPrefix}-${suffix}`;
 
-    if (insertResult.changes > 0) {
+    let insertResult: { changes: number } | null = null;
+    try {
+      insertResult = await db
+        .insert(tracerLinks)
+        .values({
+          id: createId(),
+          token,
+          jobId: args.jobId,
+          sourcePath: args.sourcePath,
+          sourceLabel: args.sourceLabel,
+          destinationUrl: args.destinationUrl,
+          destinationUrlHash: args.destinationUrlHash,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing({
+          target: [
+            tracerLinks.jobId,
+            tracerLinks.sourcePath,
+            tracerLinks.destinationUrlHash,
+          ],
+        })
+        .run();
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) {
+        throw error;
+      }
+    }
+
+    if (insertResult?.changes && insertResult.changes > 0) {
       const [created] = await db
         .select()
         .from(tracerLinks)
@@ -136,7 +179,9 @@ export async function getOrCreateTracerLink(args: {
     if (reused) return reused;
   }
 
-  throw new Error("Failed to create tracer link after retries");
+  throw new Error(
+    `Failed to create readable tracer link for prefix '${slugPrefix}' after retries`,
+  );
 }
 
 export async function findActiveTracerLinkByToken(token: string): Promise<{

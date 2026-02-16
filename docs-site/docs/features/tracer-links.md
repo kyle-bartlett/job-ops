@@ -12,7 +12,7 @@ Tracer Links rewrite outbound resume links to JobOps redirect links for a specif
 Instead of linking directly to your destination URL, the PDF link points to your JobOps instance:
 
 - original: `https://github.com/yourname`
-- traced: `https://your-jobops-host/t/<token>`
+- traced: `https://your-jobops-host/cv/<first>-<company>-xx`
 
 When someone opens the traced link, JobOps records a click event and redirects to the original destination.
 

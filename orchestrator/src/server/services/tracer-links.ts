@@ -37,6 +37,23 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
+function sanitizeLettersOnly(
+  value: string | null | undefined,
+  fallback: string,
+  maxLength: number,
+): string {
+  if (!value) return fallback;
+
+  const normalized = value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "")
+    .slice(0, maxLength);
+
+  return normalized.length > 0 ? normalized : fallback;
+}
+
 function normalizeBaseUrl(value: string | null | undefined): string | null {
   if (!value) return null;
   const trimmed = value.trim();
@@ -49,6 +66,28 @@ function deriveSourceLabel(sourcePath: string, linkNode: LinkNode): string {
   const label = typeof linkNode.label === "string" ? linkNode.label.trim() : "";
   if (label.length > 0) return label.slice(0, 200);
   return sourcePath;
+}
+
+function extractFirstNameFromResumeData(resumeData: unknown): string | null {
+  if (!isRecord(resumeData)) return null;
+  const basics = resumeData.basics;
+  if (!isRecord(basics)) return null;
+
+  const fullName = typeof basics.name === "string" ? basics.name.trim() : "";
+  if (!fullName) return null;
+
+  const [firstToken] = fullName.split(/\s+/).filter(Boolean);
+  return firstToken ?? null;
+}
+
+function buildReadableSlugPrefix(
+  resumeData: unknown,
+  companyName?: string | null,
+): string {
+  const firstNameRaw = extractFirstNameFromResumeData(resumeData);
+  const firstName = sanitizeLettersOnly(firstNameRaw, "candidate", 20);
+  const company = sanitizeLettersOnly(companyName, "company", 30);
+  return `${firstName}-${company}`;
 }
 
 function collectUrlTargets(
@@ -177,9 +216,11 @@ export async function rewriteResumeLinksWithTracer(args: {
   jobId: string;
   resumeData: unknown;
   publicBaseUrl: string;
+  companyName?: string | null;
 }): Promise<{ rewrittenLinks: number }> {
   const targets: LinkTarget[] = [];
   collectUrlTargets(args.resumeData, "", targets);
+  const slugPrefix = buildReadableSlugPrefix(args.resumeData, args.companyName);
 
   for (const target of targets) {
     const destinationUrlHash = hashText(target.destinationUrl);
@@ -189,8 +230,9 @@ export async function rewriteResumeLinksWithTracer(args: {
       sourceLabel: target.sourceLabel,
       destinationUrl: target.destinationUrl,
       destinationUrlHash,
+      slugPrefix,
     });
-    target.applyTracerUrl(`${args.publicBaseUrl}/t/${link.token}`);
+    target.applyTracerUrl(`${args.publicBaseUrl}/cv/${link.token}`);
   }
 
   return { rewrittenLinks: targets.length };

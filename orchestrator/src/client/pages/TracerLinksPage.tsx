@@ -358,7 +358,7 @@ export const TracerLinksPage: React.FC = () => {
                           {row.sourcePath}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          /t/{row.token}
+                          /cv/{row.token}
                         </div>
                       </TableCell>
                       <TableCell>
