@@ -119,7 +119,8 @@ function collectUrlTargets(
           sourceLabel: deriveSourceLabel(sourcePath, linkNode),
           destinationUrl: rawHref,
           applyTracerUrl: (url: string) => {
-            (value as { href: string }).href = url;
+            (value as { href: string; label: string }).href = url;
+            (value as { href: string; label: string }).label = url;
           },
         });
       }
