@@ -138,4 +138,31 @@ describe("JobDetailsEditDrawer", () => {
     await waitFor(() => expect(api.rescoreJob).toHaveBeenCalledWith("job-1"));
     expect(onJobUpdated).toHaveBeenCalledTimes(2);
   });
+
+  it("persists tracer-links toggle with job updates", async () => {
+    const onJobUpdated = vi.fn().mockResolvedValue(undefined);
+    const onOpenChange = vi.fn();
+    vi.mocked(api.updateJob).mockResolvedValue({} as Job);
+
+    render(
+      <JobDetailsEditDrawer
+        open
+        onOpenChange={onOpenChange}
+        job={createJob({ tracerLinksEnabled: false })}
+        onJobUpdated={onJobUpdated}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Enable tracer links for this job"));
+    fireEvent.click(screen.getByRole("button", { name: /save details/i }));
+
+    await waitFor(() =>
+      expect(api.updateJob).toHaveBeenCalledWith(
+        "job-1",
+        expect.objectContaining({
+          tracerLinksEnabled: true,
+        }),
+      ),
+    );
+  });
 });

@@ -20,6 +20,7 @@ import express from "express";
 import { apiRouter } from "./api/index";
 import { getDataDir } from "./config/dataDir";
 import { isDemoMode } from "./config/demo";
+import { resolveTracerRedirect } from "./services/tracer-links";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -117,6 +118,48 @@ export function createApp() {
   // API routes
   app.use("/api", apiRouter);
   app.use(notFoundApiHandler());
+
+  app.get("/t/:token", async (req, res) => {
+    const token = req.params.token?.trim();
+    if (!token) {
+      res.status(404).type("text/plain; charset=utf-8").send("Not found");
+      return;
+    }
+
+    try {
+      const redirect = await resolveTracerRedirect({
+        token,
+        requestId:
+          (res.getHeader("x-request-id") as string | undefined) ?? null,
+        ip: req.ip ?? null,
+        userAgent: req.header("user-agent") ?? null,
+        referrer: req.header("referer") ?? null,
+      });
+
+      if (!redirect) {
+        logger.warn("Tracer link not found", {
+          route: "GET /t/:token",
+          token,
+        });
+        res.status(404).type("text/plain; charset=utf-8").send("Not found");
+        return;
+      }
+
+      logger.info("Tracer link redirected", {
+        route: "GET /t/:token",
+        token,
+        jobId: redirect.jobId,
+      });
+      res.redirect(302, redirect.destinationUrl);
+    } catch (error) {
+      logger.error("Tracer redirect failed", {
+        route: "GET /t/:token",
+        token,
+        error,
+      });
+      res.status(500).type("text/plain; charset=utf-8").send("Internal error");
+    }
+  });
 
   // Serve static files for generated PDFs
   const pdfDir = join(getDataDir(), "pdfs");

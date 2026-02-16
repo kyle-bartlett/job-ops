@@ -17,6 +17,10 @@ import {
   resolveResumeProjectsSettings,
 } from "./resumeProjects";
 import { RxResumeClient } from "./rxresume-client";
+import {
+  resolveTracerPublicBaseUrl,
+  rewriteResumeLinksWithTracer,
+} from "./tracer-links";
 
 const OUTPUT_DIR = join(getDataDir(), "pdfs");
 
@@ -30,6 +34,11 @@ export interface TailoredPdfContent {
   summary?: string | null;
   headline?: string | null;
   skills?: Array<{ name: string; keywords: string[] }> | null;
+}
+
+export interface GeneratePdfOptions {
+  tracerLinksEnabled?: boolean;
+  requestOrigin?: string | null;
 }
 
 /**
@@ -104,6 +113,7 @@ export async function generatePdf(
   jobDescription: string,
   _baseResumePath?: string, // Deprecated: now always uses getProfile() which fetches from v4 API
   selectedProjectIds?: string | null,
+  options?: GeneratePdfOptions,
 ): Promise<PdfResult> {
   console.log(`📄 Generating PDF for job ${jobId} using RxResume v4 API...`);
 
@@ -262,6 +272,23 @@ export async function generatePdf(
         `   ⚠️ Project visibility step failed for job ${jobId}:`,
         err,
       );
+    }
+
+    if (options?.tracerLinksEnabled) {
+      const tracerBaseUrl = resolveTracerPublicBaseUrl({
+        requestOrigin: options.requestOrigin,
+      });
+      if (!tracerBaseUrl) {
+        throw new Error(
+          "Tracer links are enabled but no public base URL is available. Set JOBOPS_PUBLIC_BASE_URL.",
+        );
+      }
+
+      await rewriteResumeLinksWithTracer({
+        jobId,
+        resumeData: baseResume,
+        publicBaseUrl: tracerBaseUrl,
+      });
     }
 
     // Use withAutoRefresh to handle token caching and 401 retry automatically

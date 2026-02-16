@@ -1,0 +1,333 @@
+import { createHash } from "node:crypto";
+import type {
+  JobTracerLinksResponse,
+  TracerAnalyticsResponse,
+} from "@shared/types";
+import * as tracerLinksRepo from "../repositories/tracer-links";
+
+type LinkNode = {
+  label?: unknown;
+  href?: unknown;
+};
+
+type LinkTarget = {
+  sourcePath: string;
+  sourceLabel: string;
+  destinationUrl: string;
+  applyTracerUrl: (url: string) => void;
+};
+
+const BOT_UA_PATTERN =
+  /\b(bot|crawler|spider|preview|scanner|security|headless|curl|wget|slackbot|discordbot|facebookexternalhit|whatsapp|skypeuripreview|linkedinbot|googleimageproxy)\b/i;
+
+function hashText(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function normalizeBaseUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (!isHttpUrl(trimmed)) return null;
+  return trimmed.replace(/\/+$/, "");
+}
+
+function deriveSourceLabel(sourcePath: string, linkNode: LinkNode): string {
+  const label = typeof linkNode.label === "string" ? linkNode.label.trim() : "";
+  if (label.length > 0) return label.slice(0, 200);
+  return sourcePath;
+}
+
+function collectUrlTargets(
+  node: unknown,
+  path: string,
+  targets: LinkTarget[],
+): void {
+  if (Array.isArray(node)) {
+    for (const [index, item] of node.entries()) {
+      const nextPath = `${path}[${index}]`;
+      collectUrlTargets(item, nextPath, targets);
+    }
+    return;
+  }
+
+  if (!isRecord(node)) return;
+
+  for (const [key, value] of Object.entries(node)) {
+    const nextPath = path.length > 0 ? `${path}.${key}` : key;
+
+    if (key === "url" && isRecord(value)) {
+      const linkNode = value as LinkNode;
+      const rawHref =
+        typeof linkNode.href === "string" ? linkNode.href.trim() : "";
+      if (rawHref && isHttpUrl(rawHref)) {
+        const sourcePath = `${nextPath}.href`;
+        targets.push({
+          sourcePath,
+          sourceLabel: deriveSourceLabel(sourcePath, linkNode),
+          destinationUrl: rawHref,
+          applyTracerUrl: (url: string) => {
+            (value as { href: string }).href = url;
+          },
+        });
+      }
+      continue;
+    }
+
+    collectUrlTargets(value, nextPath, targets);
+  }
+}
+
+function dayBucketFromUnixSeconds(unixSeconds: number): string {
+  return new Date(unixSeconds * 1000).toISOString().slice(0, 10);
+}
+
+function normalizeIpPrefix(ip: string | null): string | null {
+  if (!ip) return null;
+  const trimmed = ip.trim();
+  if (!trimmed) return null;
+
+  // Common Express format for IPv4-mapped IPv6
+  const clean = trimmed.startsWith("::ffff:") ? trimmed.slice(7) : trimmed;
+
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(clean)) {
+    const parts = clean.split(".");
+    return `${parts[0]}.${parts[1]}.${parts[2]}.0/24`;
+  }
+
+  if (clean.includes(":")) {
+    const normalized = clean
+      .split(":")
+      .filter((part) => part.length > 0)
+      .slice(0, 4)
+      .join(":");
+    if (!normalized) return null;
+    return `${normalized}::/64`;
+  }
+
+  return null;
+}
+
+function getReferrerHost(referrer: string | null): string | null {
+  if (!referrer) return null;
+  try {
+    const host = new URL(referrer).host;
+    return host || null;
+  } catch {
+    return null;
+  }
+}
+
+function classifyDeviceType(userAgent: string): string {
+  const ua = userAgent.toLowerCase();
+  if (/(tablet|ipad)/.test(ua)) return "tablet";
+  if (/(mobile|iphone|android)/.test(ua)) return "mobile";
+  if (/(windows|macintosh|linux|x11|cros)/.test(ua)) return "desktop";
+  return "unknown";
+}
+
+function classifyUaFamily(userAgent: string): string {
+  const ua = userAgent.toLowerCase();
+  if (ua.includes("edg/")) return "edge";
+  if (ua.includes("opr/") || ua.includes("opera")) return "opera";
+  if (ua.includes("chrome/")) return "chrome";
+  if (ua.includes("firefox/")) return "firefox";
+  if (ua.includes("safari/")) return "safari";
+  if (BOT_UA_PATTERN.test(ua)) return "bot";
+  return "unknown";
+}
+
+function classifyOsFamily(userAgent: string): string {
+  const ua = userAgent.toLowerCase();
+  if (ua.includes("windows")) return "windows";
+  if (ua.includes("android")) return "android";
+  if (ua.includes("iphone") || ua.includes("ipad") || ua.includes("ios"))
+    return "ios";
+  if (ua.includes("mac os") || ua.includes("macintosh")) return "macos";
+  if (ua.includes("linux")) return "linux";
+  return "unknown";
+}
+
+function isLikelyBotUserAgent(userAgent: string): boolean {
+  return BOT_UA_PATTERN.test(userAgent);
+}
+
+export function resolveTracerPublicBaseUrl(args: {
+  requestOrigin?: string | null;
+}): string | null {
+  const fromRequest = normalizeBaseUrl(args.requestOrigin);
+  if (fromRequest) return fromRequest;
+  return normalizeBaseUrl(process.env.JOBOPS_PUBLIC_BASE_URL ?? null);
+}
+
+export async function rewriteResumeLinksWithTracer(args: {
+  jobId: string;
+  resumeData: unknown;
+  publicBaseUrl: string;
+}): Promise<{ rewrittenLinks: number }> {
+  const targets: LinkTarget[] = [];
+  collectUrlTargets(args.resumeData, "", targets);
+
+  for (const target of targets) {
+    const destinationUrlHash = hashText(target.destinationUrl);
+    const link = await tracerLinksRepo.getOrCreateTracerLink({
+      jobId: args.jobId,
+      sourcePath: target.sourcePath,
+      sourceLabel: target.sourceLabel,
+      destinationUrl: target.destinationUrl,
+      destinationUrlHash,
+    });
+    target.applyTracerUrl(`${args.publicBaseUrl}/t/${link.token}`);
+  }
+
+  return { rewrittenLinks: targets.length };
+}
+
+export async function resolveTracerRedirect(args: {
+  token: string;
+  requestId: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  referrer: string | null;
+}): Promise<{ destinationUrl: string; jobId: string } | null> {
+  const link = await tracerLinksRepo.findActiveTracerLinkByToken(args.token);
+  if (!link) return null;
+
+  const clickedAt = Math.floor(Date.now() / 1000);
+  const dayBucket = dayBucketFromUnixSeconds(clickedAt);
+  const userAgent = args.userAgent?.trim() ?? "";
+  const ipPrefix = normalizeIpPrefix(args.ip);
+  const ipHash = ipPrefix ? hashText(ipPrefix) : null;
+  const uniqueFingerprintSource = `${ipPrefix ?? "na"}|${userAgent.toLowerCase() || "na"}|${dayBucket}`;
+  const uniqueFingerprintHash =
+    ipPrefix || userAgent ? hashText(uniqueFingerprintSource) : null;
+  const isLikelyBot = isLikelyBotUserAgent(userAgent);
+
+  await tracerLinksRepo.insertTracerClickEvent({
+    tracerLinkId: link.id,
+    clickedAt,
+    requestId: args.requestId,
+    isLikelyBot,
+    deviceType: classifyDeviceType(userAgent),
+    uaFamily: classifyUaFamily(userAgent),
+    osFamily: classifyOsFamily(userAgent),
+    referrerHost: getReferrerHost(args.referrer),
+    ipHash,
+    uniqueFingerprintHash,
+  });
+
+  return {
+    destinationUrl: link.destinationUrl,
+    jobId: link.jobId,
+  };
+}
+
+export async function getTracerAnalytics(args: {
+  jobId?: string | null;
+  from?: number | null;
+  to?: number | null;
+  includeBots?: boolean;
+  limit?: number;
+}): Promise<TracerAnalyticsResponse> {
+  const includeBots = Boolean(args.includeBots);
+  const limit = Number.isFinite(args.limit)
+    ? Math.max(1, args.limit ?? 20)
+    : 20;
+
+  const [totals, timeSeries, topJobs, topLinks] = await Promise.all([
+    tracerLinksRepo.getTracerAnalyticsTotals({
+      ...args,
+      includeBots,
+      limit,
+    }),
+    tracerLinksRepo.getTracerAnalyticsTimeSeries({
+      ...args,
+      includeBots,
+      limit,
+    }),
+    tracerLinksRepo.getTracerAnalyticsTopJobs({
+      ...args,
+      includeBots,
+      limit,
+    }),
+    tracerLinksRepo.getTracerAnalyticsTopLinks({
+      ...args,
+      includeBots,
+      limit,
+    }),
+  ]);
+
+  return {
+    filters: {
+      jobId: args.jobId ?? null,
+      from: args.from ?? null,
+      to: args.to ?? null,
+      includeBots,
+      limit,
+    },
+    totals,
+    timeSeries,
+    topJobs,
+    topLinks,
+  };
+}
+
+export async function getJobTracerLinksAnalytics(args: {
+  jobId: string;
+  from?: number | null;
+  to?: number | null;
+  includeBots?: boolean;
+  title: string;
+  employer: string;
+  tracerLinksEnabled: boolean;
+}): Promise<JobTracerLinksResponse> {
+  const includeBots = Boolean(args.includeBots);
+
+  const links = await tracerLinksRepo.listTracerLinkStatsByJob(args.jobId, {
+    from: args.from,
+    to: args.to,
+    includeBots,
+  });
+
+  const totals = links.reduce(
+    (acc, item) => {
+      acc.links += 1;
+      acc.clicks += item.clicks;
+      acc.uniqueOpens += item.uniqueOpens;
+      acc.botClicks += item.botClicks;
+      acc.humanClicks += item.humanClicks;
+      return acc;
+    },
+    {
+      links: 0,
+      clicks: 0,
+      uniqueOpens: 0,
+      botClicks: 0,
+      humanClicks: 0,
+    },
+  );
+
+  return {
+    job: {
+      id: args.jobId,
+      title: args.title,
+      employer: args.employer,
+      tracerLinksEnabled: args.tracerLinksEnabled,
+    },
+    totals,
+    links,
+  };
+}

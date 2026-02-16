@@ -49,6 +49,8 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
     setJobDescription,
     selectedIds,
     selectedIdsCsv,
+    tracerLinksEnabled,
+    setTracerLinksEnabled,
     skillsDraft,
     openSkillGroupId,
     setOpenSkillGroupId,
@@ -76,8 +78,16 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
       tailoredSkills: skillsJson,
       jobDescription,
       selectedProjectIds: selectedIdsCsv,
+      tracerLinksEnabled,
     }),
-    [summary, headline, skillsJson, jobDescription, selectedIdsCsv],
+    [
+      summary,
+      headline,
+      skillsJson,
+      jobDescription,
+      selectedIdsCsv,
+      tracerLinksEnabled,
+    ],
   );
 
   const persistCurrent = useCallback(async () => {
@@ -256,6 +266,7 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
             jobDescription={jobDescription}
             skillsDraft={skillsDraft}
             selectedIds={selectedIds}
+            tracerLinksEnabled={tracerLinksEnabled}
             openSkillGroupId={openSkillGroupId}
             disableInputs={disableInputs}
             onSummaryChange={setSummary}
@@ -266,6 +277,7 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
             onUpdateSkillGroup={handleUpdateSkillGroup}
             onRemoveSkillGroup={handleRemoveSkillGroup}
             onToggleProject={handleToggleProject}
+            onTracerLinksEnabledChange={setTracerLinksEnabled}
           />
 
           <div className="flex justify-end border-t pt-4">
@@ -342,6 +354,7 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
           jobDescription={jobDescription}
           skillsDraft={skillsDraft}
           selectedIds={selectedIds}
+          tracerLinksEnabled={tracerLinksEnabled}
           openSkillGroupId={openSkillGroupId}
           disableInputs={disableInputs}
           onSummaryChange={setSummary}
@@ -352,6 +365,7 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
           onUpdateSkillGroup={handleUpdateSkillGroup}
           onRemoveSkillGroup={handleRemoveSkillGroup}
           onToggleProject={handleToggleProject}
+          onTracerLinksEnabledChange={setTracerLinksEnabled}
         />
       </div>
 

@@ -161,6 +161,7 @@ const updateJobSchema = z.object({
     }),
   selectedProjectIds: z.string().optional(),
   pdfPath: z.string().optional(),
+  tracerLinksEnabled: z.boolean().optional(),
   sponsorMatchScore: z.number().min(0).max(100).optional(),
   sponsorMatchNames: z.string().optional(),
 });
@@ -213,6 +214,15 @@ function parseStatusFilter(statusFilter?: string): JobStatus[] | undefined {
     | JobStatus[]
     | undefined;
   return parsed && parsed.length > 0 ? parsed : undefined;
+}
+
+function resolveRequestOrigin(req: Request): string | null {
+  const forwardedProto = req.header("x-forwarded-proto")?.split(",")[0]?.trim();
+  const forwardedHost = req.header("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost || req.header("host")?.trim();
+  const protocol = (forwardedProto || req.protocol || "").trim();
+  if (!host || !protocol) return null;
+  return `${protocol}://${host}`;
 }
 
 function mapErrorForResult(error: unknown): {
@@ -857,7 +867,9 @@ jobsRouter.post("/:id/generate-pdf", async (req: Request, res: Response) => {
       return okWithMeta(res, job, { simulated: true });
     }
 
-    const result = await generateFinalPdf(req.params.id);
+    const result = await generateFinalPdf(req.params.id, {
+      requestOrigin: resolveRequestOrigin(req),
+    });
 
     if (!result.success) {
       return res.status(400).json({ success: false, error: result.error });
@@ -891,7 +903,10 @@ jobsRouter.post("/:id/process", async (req: Request, res: Response) => {
       return okWithMeta(res, job, { simulated: true });
     }
 
-    const result = await processJob(req.params.id, { force });
+    const result = await processJob(req.params.id, {
+      force,
+      requestOrigin: resolveRequestOrigin(req),
+    });
 
     if (!result.success) {
       return res.status(400).json({ success: false, error: result.error });

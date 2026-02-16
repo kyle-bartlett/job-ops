@@ -239,4 +239,29 @@ describe("TailoringEditor", () => {
     expect(screen.getByDisplayValue("Backend")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Node.js, Kafka")).toBeInTheDocument();
   });
+
+  it("persists tracer-links toggle in tailoring save payload", async () => {
+    render(
+      <TailoringEditor
+        job={createJob({ tracerLinksEnabled: false })}
+        onUpdate={vi.fn()}
+      />,
+    );
+    await waitFor(() =>
+      expect(api.getResumeProjectsCatalog).toHaveBeenCalled(),
+    );
+    ensureAccordionOpen("Tracer Links");
+
+    fireEvent.click(screen.getByLabelText("Enable tracer links for this job"));
+    fireEvent.click(screen.getByRole("button", { name: "Save Selection" }));
+
+    await waitFor(() =>
+      expect(api.updateJob).toHaveBeenCalledWith(
+        "job-1",
+        expect.objectContaining({
+          tracerLinksEnabled: true,
+        }),
+      ),
+    );
+  });
 });

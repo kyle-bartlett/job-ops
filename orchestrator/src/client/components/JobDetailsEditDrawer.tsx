@@ -4,6 +4,7 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -31,6 +32,7 @@ type JobDetailsDraft = {
   salary: string;
   deadline: string;
   jobDescription: string;
+  tracerLinksEnabled: boolean;
 };
 
 const emptyDraft: JobDetailsDraft = {
@@ -42,6 +44,7 @@ const emptyDraft: JobDetailsDraft = {
   salary: "",
   deadline: "",
   jobDescription: "",
+  tracerLinksEnabled: false,
 };
 
 const normalizeOptional = (value: string): string | null => {
@@ -60,6 +63,7 @@ const normalizeFromJob = (job: Job | null): JobDetailsDraft => {
     salary: job.salary ?? "",
     deadline: job.deadline ?? "",
     jobDescription: job.jobDescription ?? "",
+    tracerLinksEnabled: Boolean(job.tracerLinksEnabled),
   };
 };
 
@@ -101,7 +105,8 @@ export const JobDetailsEditDrawer: React.FC<JobDetailsEditDrawerProps> = ({
       draft.location !== current.location ||
       draft.salary !== current.salary ||
       draft.deadline !== current.deadline ||
-      draft.jobDescription !== current.jobDescription
+      draft.jobDescription !== current.jobDescription ||
+      draft.tracerLinksEnabled !== current.tracerLinksEnabled
     );
   }, [draft, job]);
 
@@ -150,6 +155,7 @@ export const JobDetailsEditDrawer: React.FC<JobDetailsEditDrawerProps> = ({
         salary: normalizeOptional(draft.salary),
         deadline: normalizeOptional(draft.deadline),
         jobDescription: normalizeOptional(draft.jobDescription),
+        tracerLinksEnabled: draft.tracerLinksEnabled,
       });
 
       if (employerChanged) {
@@ -279,6 +285,32 @@ export const JobDetailsEditDrawer: React.FC<JobDetailsEditDrawerProps> = ({
                     }
                     placeholder="e.g. 31 Mar 2026"
                   />
+                </div>
+
+                <div className="mt-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-3">
+                  <label
+                    htmlFor="edit-tracer-links-enabled"
+                    className="flex cursor-pointer items-center gap-3"
+                  >
+                    <Checkbox
+                      id="edit-tracer-links-enabled"
+                      checked={draft.tracerLinksEnabled}
+                      onCheckedChange={(checked) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          tracerLinksEnabled: Boolean(checked),
+                        }))
+                      }
+                      disabled={isSaving}
+                    />
+                    <span className="text-sm font-medium">
+                      Enable tracer links for this job
+                    </span>
+                  </label>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Applies on the next PDF generation. Existing PDFs are not
+                    modified.
+                  </p>
                 </div>
 
                 <div className="mt-3 space-y-1">
