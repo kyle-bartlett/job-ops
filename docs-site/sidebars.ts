@@ -10,11 +10,28 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: "category",
+      label: "Workflows",
+      items: [
+        "workflows/find-jobs-and-apply-workflow",
+        "workflows/post-application-workflow",
+      ],
+    },
+    {
+      type: "category",
       label: "Core Features",
       items: [
+        "features/overview",
+        "features/pipeline-run",
+        "features/job-search-bar",
+        "features/keyboard-shortcuts",
+        "features/multi-select-and-bulk-actions",
         "features/orchestrator",
+        "features/settings",
+        "features/reactive-resume",
+        "features/in-progress-board",
         "features/ghostwriter",
         "features/post-application-tracking",
+        "features/visa-sponsors",
       ],
     },
     {
@@ -33,6 +50,7 @@ const sidebars: SidebarsConfig = {
       label: "Self-Hosting & Ops",
       items: [
         "getting-started/self-hosting",
+        "getting-started/database-backups",
         "troubleshooting/common-problems",
       ],
     },
