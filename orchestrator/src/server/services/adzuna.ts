@@ -162,8 +162,9 @@ export async function runAdzuna(
 
   try {
     await new Promise<void>((resolve, reject) => {
-      const child = spawn("npx", ["tsx", "src/main.ts"], {
+      const child = spawn("npm", ["run", "start"], {
         cwd: ADZUNA_DIR,
+        shell: true,
         stdio: ["ignore", "pipe", "pipe"],
         env: {
           ...process.env,
