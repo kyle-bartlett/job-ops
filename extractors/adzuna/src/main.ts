@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { toNumberOrNull, toStringOrNull } from "job-ops-shared/utils/type-conversion";
 
 const API_BASE = "https://api.adzuna.com/v1/api";
 const JOBOPS_PROGRESS_PREFIX = "JOBOPS_PROGRESS ";
@@ -33,21 +34,6 @@ type ExtractedJob = {
   jobDescription?: string;
   jobType?: string;
 };
-
-function toStringOrNull(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function toNumberOrNull(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return null;
-}
 
 function parsePositiveInt(input: string | undefined, fallback: number): number {
   const parsed = input ? Number.parseInt(input, 10) : Number.NaN;
