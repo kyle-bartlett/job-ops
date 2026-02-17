@@ -282,7 +282,7 @@ function normalizeProvider(
     ) {
       return "lmstudio";
     }
-    return "openai";
+    return "openai_compatible";
   }
   if (normalized === "openai") return "openai";
   if (normalized === "gemini") return "gemini";
